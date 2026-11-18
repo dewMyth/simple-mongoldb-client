@@ -48,3 +48,11 @@
   read-only override, secondary reads, learned denials and privileges, and records Unauthorized errors).
   Reads are never pre-blocked; they only learn from code 13. Use "db" as the ns for database-level actions.
 - Test users for permission work: `scripts/seed-users.ts` (reader / writer / dba, password "pw").
+- Editing: src/shared/doc-edit.ts (immutable path ops with segment paths, type-exact diff, conflict filter)
+  and src/shared/edit-values.ts (inline text ↔ typed value, type conversion). Saves go through main's
+  DocumentService.update: $set/$unset of changed paths filtered on _id + original values; keys that can't be
+  dotted (".", leading "$") use `$replaceWith: { $literal }` filtered on the exact original ($$ROOT).
+- Opening a dialog from a Radix menu item: defer it (setTimeout) or the dialog can lose keyboard input
+  (components/Menu.tsx does this for context menus).
+- Monaco in E2E: clear and wait for `.view-lines` to be empty before inserting text; submit handlers get the
+  editor's live text (`onSubmit(text)`) because React state lags a keystroke.

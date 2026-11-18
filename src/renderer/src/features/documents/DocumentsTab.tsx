@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Document } from 'bson'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Braces,
@@ -9,9 +10,12 @@ import {
   ChevronsRight,
   ChevronsUpDown,
   ListTree,
+  MoreHorizontal,
+  Plus,
   Sheet
 } from 'lucide-react'
 import { PAGE_SIZE, resultTotal } from '@shared/query'
+import { toShellString } from '@shared/shell-format'
 import { cn } from '@renderer/lib/utils'
 import type { Tab, ViewMode } from '../../stores/tabs'
 import { useTabsStore } from '../../stores/tabs'
@@ -26,6 +30,35 @@ import { JsonView } from './JsonView'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { TableView } from './TableView'
 import { PermissionsPanel } from '../permissions/PermissionsPanel'
+import { useCollections } from '../connections/queries'
+import { Dialog } from '../../components/Dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '../../components/ui/dropdown-menu'
+import { ReasonText } from '../../components/ReasonText'
+import { DocsContext, type DocsTarget } from './docs-context'
+import { DocActions } from './editing/DocActions'
+import { DocEditCard, type EditMode } from './editing/DocEditCard'
+import { EMPTY_INSERT, InsertDialog } from './editing/InsertDialog'
+import { BulkDeleteDialog, BulkUpdateDialog } from './editing/BulkDialogs'
+import { useWriteCheck } from './editing/use-write-check'
+
+/** The document being edited, tied to the page request it belongs to. */
+interface Editing {
+  index: number
+  mode: EditMode
+  requestId: number
+}
+
+interface EditingProps {
+  editing: Editing | null
+  onEdit: (index: number, mode: EditMode) => void
+  onDoneEditing: () => void
+  onClone: (doc: Document) => void
+}
 
 interface ExpandRequest {
   epoch: number
@@ -40,6 +73,34 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
   const run = useResultsStore((s) => s.run)
   const cancel = useResultsStore((s) => s.cancel)
   const ns = tab.ns!
+  const db = ns.slice(0, ns.indexOf('.'))
+  const collName = ns.slice(ns.indexOf('.') + 1)
+  const { data: colls } = useCollections(tab.connectionId, db, true)
+  const isView = colls?.find((c) => c.name === collName)?.type === 'view'
+  const target = useMemo<DocsTarget>(
+    () => ({
+      tabId: tab.id,
+      connectionId: tab.connectionId,
+      ns,
+      readOnlyReason: isView ? 'Views are read-only.' : null
+    }),
+    [tab.id, tab.connectionId, ns, isView]
+  )
+  const [editingState, setEditing] = useState<Editing | null>(null)
+  // Editing belongs to one page request: paging or re-running the query ends it.
+  const editing = editingState?.requestId === results.requestId ? editingState : null
+  const [inserting, setInserting] = useState<string | null>(null)
+  const [bulk, setBulk] = useState<'update' | 'delete' | null>(null)
+  const editingProps: EditingProps = {
+    editing,
+    onEdit: (index, mode) => setEditing({ index, mode, requestId: results.requestId }),
+    onDoneEditing: () => setEditing(null),
+    onClone: (doc) => {
+      const copy = { ...doc }
+      delete copy['_id']
+      setInserting(toShellString(copy))
+    }
+  }
 
   const onRun = useCallback(() => {
     const q = useTabsStore.getState().tabs.find((t) => t.id === tab.id)?.query ?? tab.query
@@ -65,26 +126,37 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
   }, [results.status, onCancel])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="documents-tab">
-      <QueryBar
-        connectionId={tab.connectionId}
-        ns={ns}
-        query={tab.query}
-        onChange={(q) => setQuery(tab.id, q)}
-        onRun={onRun}
-        onCancel={onCancel}
-        running={results.status === 'running'}
-        fieldErrors={results.fieldErrors}
-      />
-      <ResultsHeader
-        tabId={tab.id}
-        viewMode={tab.viewMode}
-        onViewMode={(m) => setViewMode(tab.id, m)}
-        expand={expand}
-        onExpand={(mode) => setExpand((e) => ({ epoch: e.epoch + 1, mode }))}
-      />
-      <ResultsList tabId={tab.id} viewMode={tab.viewMode} expand={expand} />
-    </div>
+    <DocsContext.Provider value={target}>
+      <div className="flex min-h-0 flex-1 flex-col" data-testid="documents-tab">
+        <QueryBar
+          connectionId={tab.connectionId}
+          ns={ns}
+          query={tab.query}
+          onChange={(q) => setQuery(tab.id, q)}
+          onRun={onRun}
+          onCancel={onCancel}
+          running={results.status === 'running'}
+          fieldErrors={results.fieldErrors}
+        />
+        <ResultsHeader
+          tabId={tab.id}
+          viewMode={tab.viewMode}
+          onViewMode={(m) => setViewMode(tab.id, m)}
+          expand={expand}
+          onExpand={(mode) => setExpand((e) => ({ epoch: e.epoch + 1, mode }))}
+          onInsert={() => setInserting(EMPTY_INSERT)}
+          onBulk={setBulk}
+        />
+        <ResultsList tabId={tab.id} viewMode={tab.viewMode} expand={expand} {...editingProps} />
+        {inserting !== null && <InsertDialog initialText={inserting} onClose={() => setInserting(null)} />}
+        {bulk === 'update' && results.ranQuery && (
+          <BulkUpdateDialog query={results.ranQuery} onClose={() => setBulk(null)} />
+        )}
+        {bulk === 'delete' && results.ranQuery && (
+          <BulkDeleteDialog query={results.ranQuery} onClose={() => setBulk(null)} />
+        )}
+      </div>
+    </DocsContext.Provider>
   )
 }
 
@@ -106,15 +178,22 @@ function ResultsHeader({
   viewMode,
   onViewMode,
   expand,
-  onExpand
+  onExpand,
+  onInsert,
+  onBulk
 }: {
   tabId: string
   viewMode: ViewMode
   onViewMode: (m: ViewMode) => void
   expand: ExpandRequest
   onExpand: (mode: ExpandMode) => void
+  onInsert: () => void
+  onBulk: (kind: 'update' | 'delete') => void
 }) {
   const r = useResultsStore((s) => s.byTab[tabId])
+  const canInsert = useWriteCheck('insert')
+  const canUpdate = useWriteCheck('update')
+  const canRemove = useWriteCheck('remove')
   if (!r) return null
   let countText = ''
   if (r.count) {
@@ -159,6 +238,50 @@ function ResultsHeader({
           {countText}
         </span>
         {r.pageMs !== null && <span title="Time to load this page">{r.pageMs} ms</span>}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6"
+          disabled={!canInsert.allowed}
+          title={canInsert.allowed ? 'Insert documents' : `Insert: ${canInsert.reason}`}
+          onClick={onInsert}
+          data-testid="insert-button"
+        >
+          <Plus /> Insert
+        </Button>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="More actions" data-testid="more-actions">
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72 text-xs">
+            {(
+              [
+                ['update', 'Update matching documents…', canUpdate],
+                ['delete', 'Delete matching documents…', canRemove]
+              ] as const
+            ).map(([kind, text, check]) => (
+              <DropdownMenuItem
+                key={kind}
+                disabled={!check.allowed || !r.ranQuery}
+                // Open after the menu has closed: a dialog opened mid-close loses keyboard input to
+                // the menu's focus handling (Radix).
+                onSelect={() => setTimeout(() => onBulk(kind), 0)}
+                variant={kind === 'delete' ? 'destructive' : 'default'}
+                className="flex-col items-start gap-0"
+                data-testid={`bulk-${kind}`}
+              >
+                {text}
+                {!check.allowed && check.reason && (
+                  <span className="text-[11px] text-muted-foreground">
+                    <ReasonText text={check.reason} />
+                  </span>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         {r.target && <PermissionsPanel connectionId={r.target.connectionId} ns={r.target.ns} />}
         <ToggleGroup
           type="single"
@@ -293,12 +416,17 @@ function Pager({ tabId, r }: { tabId: string; r: TabResults }) {
 function ResultsList({
   tabId,
   viewMode,
-  expand
+  expand,
+  editing,
+  onEdit,
+  onDoneEditing,
+  onClone
 }: {
   tabId: string
   viewMode: ViewMode
   expand: ExpandRequest
-}) {
+} & EditingProps) {
+  const updateCheck = useWriteCheck('update')
   const r = useResultsStore((s) => s.byTab[tabId])
   const parentRef = useRef<HTMLDivElement>(null)
   const docs = r?.docs ?? []
@@ -370,8 +498,21 @@ function ResultsList({
             connectionId={r.target.connectionId}
             ns={r.target.ns}
             tabId={tabId}
+            onEdit={(i) => onEdit(i, 'inline')}
+            editCheck={updateCheck}
           />
         </ErrorBoundary>
+        {editing && docs[editing.index] && (
+          <Dialog open onOpenChange={(o) => !o && onDoneEditing()} width="lg" title="Edit document">
+            <DocEditCard
+              index={editing.index}
+              doc={docs[editing.index]!}
+              raw={r.raw[editing.index]!}
+              mode={editing.mode}
+              onDone={onDoneEditing}
+            />
+          </Dialog>
+        )}
       </div>
     )
   }
@@ -392,10 +533,40 @@ function ResultsList({
             style={{ transform: `translateY(${item.start}px)` }}
           >
             <ErrorBoundary label="this document">
-              {viewMode === 'tree' ? (
-                <JsonTree doc={docs[item.index]!} epoch={expand.epoch} mode={expand.mode} />
+              {editing?.index === item.index ? (
+                <DocEditCard
+                  index={item.index}
+                  doc={docs[item.index]!}
+                  raw={r.raw[item.index]!}
+                  mode={editing.mode}
+                  onDone={onDoneEditing}
+                />
+              ) : viewMode === 'tree' ? (
+                <JsonTree
+                  doc={docs[item.index]!}
+                  epoch={expand.epoch}
+                  mode={expand.mode}
+                  actions={
+                    <DocActions
+                      doc={docs[item.index]!}
+                      index={item.index}
+                      onEdit={(m) => onEdit(item.index, m)}
+                      onClone={onClone}
+                    />
+                  }
+                />
               ) : (
-                <JsonView doc={docs[item.index]!} />
+                <JsonView
+                  doc={docs[item.index]!}
+                  actions={
+                    <DocActions
+                      doc={docs[item.index]!}
+                      index={item.index}
+                      onEdit={(m) => onEdit(item.index, m)}
+                      onClone={onClone}
+                    />
+                  }
+                />
               )}
             </ErrorBoundary>
           </div>

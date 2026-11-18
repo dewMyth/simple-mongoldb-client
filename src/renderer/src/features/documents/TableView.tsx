@@ -6,6 +6,8 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Document } from 'bson'
 import { useQuery } from '@tanstack/react-query'
+import { Pencil } from 'lucide-react'
+import type { PermissionCheck } from '@shared/permissions'
 import {
   bsonTypeLabel,
   bsonTypeOf,
@@ -65,13 +67,18 @@ export function TableView({
   offset,
   connectionId,
   ns,
-  tabId
+  tabId,
+  onEdit,
+  editCheck
 }: {
   docs: Document[]
   offset: number
   connectionId: string
   ns: string
   tabId: string
+  /** Opens a row's document for editing. */
+  onEdit?: (index: number) => void
+  editCheck?: PermissionCheck
 }) {
   const { data: sample } = useFieldSample(connectionId, ns, tabId)
   const columns = useMemo(() => columnsFor(docs, sample?.fields), [docs, sample])
@@ -143,7 +150,20 @@ export function TableView({
           {docs.map((doc, i) => (
             <tr key={i} className="group/row" data-testid="table-row">
               <td className="sticky left-0 z-10 border-r border-b bg-panel px-2 py-1 text-right font-sans text-[11px] text-muted-foreground tabular-nums group-hover/row:bg-panel-2">
-                {offset + i + 1}
+                <span className="group-hover/row:hidden">{offset + i + 1}</span>
+                {onEdit && (
+                  <button
+                    type="button"
+                    className="hidden w-full justify-end text-muted-foreground group-hover/row:flex hover:text-primary disabled:opacity-40"
+                    title={editCheck?.allowed === false ? `Edit: ${editCheck.reason}` : 'Edit document'}
+                    aria-label="Edit document"
+                    disabled={editCheck?.allowed === false || !('_id' in doc)}
+                    onClick={() => onEdit(i)}
+                    data-testid="row-edit"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                )}
               </td>
               {columns.map((c) => (
                 <td

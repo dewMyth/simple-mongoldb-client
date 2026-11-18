@@ -9,7 +9,7 @@
 import { BSON, type Document } from 'bson'
 
 /** Opaque marker: bytes of exactly one BSON document. */
-export type BsonBytes = Uint8Array
+export type BsonBytes = Uint8Array<ArrayBuffer>
 
 /** Keep every value's BSON class: Int32, Long, Double, Binary, BSONRegExp… */
 export const DESERIALIZE_OPTIONS = {
@@ -25,7 +25,7 @@ export const DESERIALIZE_OPTIONS = {
  * server reply, and structured clone (IPC) copies a view's entire backing buffer.
  */
 export function ownBytes(view: Uint8Array): BsonBytes {
-  const copy = new Uint8Array(view.byteLength)
+  const copy = new Uint8Array(new ArrayBuffer(view.byteLength))
   copy.set(view)
   return copy
 }
@@ -37,13 +37,13 @@ export function toBsonBytes(doc: Document): BsonBytes {
 /** Byte size of each document as received, for size-aware rendering (e.g. huge documents). */
 const sizes = new WeakMap<object, number>()
 
-export function fromBsonBytes(bytes: BsonBytes): Document {
+export function fromBsonBytes(bytes: Uint8Array): Document {
   const doc = BSON.deserialize(bytes, DESERIALIZE_OPTIONS)
   sizes.set(doc, bytes.byteLength)
   return doc
 }
 
-export function fromBsonArray(list: BsonBytes[]): Document[] {
+export function fromBsonArray(list: Uint8Array[]): Document[] {
   return list.map(fromBsonBytes)
 }
 

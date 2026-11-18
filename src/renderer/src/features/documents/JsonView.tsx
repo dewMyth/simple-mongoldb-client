@@ -3,7 +3,7 @@
  * Colouring uses Monaco's tokenizer so it matches the query editor. Big documents skip colouring
  * and are truncated until asked, so a 10 MB document never blocks the UI.
  */
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useState, type ReactNode } from 'react'
 import type { Document } from 'bson'
 import { Copy } from 'lucide-react'
 import { stringifyCanonical, stringifyRelaxed } from '@shared/ejson'
@@ -46,7 +46,7 @@ function displayText(doc: Document): { text: string; truncated: boolean } {
   return p
 }
 
-export const JsonView = memo(function JsonView({ doc }: { doc: Document }) {
+export const JsonView = memo(function JsonView({ doc, actions }: { doc: Document; actions?: ReactNode }) {
   const theme = useThemeStore((s) => s.resolved)
   const [showAll, setShowAll] = useState(false)
   const preview = displayText(doc)
@@ -74,7 +74,8 @@ export const JsonView = memo(function JsonView({ doc }: { doc: Document }) {
   const size = receivedSize(doc)
   return (
     <div className="group/doc relative rounded-md border bg-card" data-testid="doc">
-      <div className="absolute top-1 right-1 z-10 opacity-0 transition-opacity group-hover/doc:opacity-100">
+      <div className="absolute top-1 right-1 z-10 flex gap-0.5 opacity-0 transition-opacity group-hover/doc:opacity-100">
+        {actions}
         <CopyMenu doc={doc} />
       </div>
       {html ? (

@@ -28,6 +28,7 @@ import {
 } from './query'
 import type { PermissionSnapshot } from './permissions'
 import type { FieldStat } from './field-stats'
+import type { InsertResult, ParseDocumentsResult, UpdatePreview, UpdateResult } from './documents'
 
 /** Declares a channel: zod input schema + output type carried only at the type level. */
 function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
@@ -91,6 +92,21 @@ export const findSchema = z.object({
   /** Page window over the user's skip/limit; the page arrives in one batch (no cursor left open). */
   page: z.object({ offset: z.number().int().min(0), size: z.number().int().min(1).max(1000) }).optional()
 })
+
+/** One BSON document (≤ 16 MB, plus headroom). */
+const bsonBytes = z
+  .instanceof(Uint8Array)
+  .refine((b) => b.byteLength <= 17 * 1024 * 1024, 'Document too large')
+const docTarget = z.object({ connectionId: connId, ns: nsSchema })
+export const docUpdateSchema = docTarget.extend({
+  original: bsonBytes,
+  edited: bsonBytes,
+  force: z.boolean().optional()
+})
+export const docInsertSchema = docTarget.extend({ docs: z.array(bsonBytes).min(1).max(100_000) })
+export const docDeleteOneSchema = docTarget.extend({ original: bsonBytes })
+export const docManySchema = docTarget.extend({ query: queryTextSchema })
+export const docUpdateManySchema = docManySchema.extend({ update: z.string().min(1).max(1_000_000) })
 
 // ---------------------------------------------------------------- the contract
 
@@ -162,6 +178,18 @@ export const ipcContract = {
       size: z.number().int().min(1).max(10_000).optional()
     })
   ),
+  /** Parse shell-syntax text into BSON documents (one or an array). */
+  'docs:parse': channel<z.ZodString, ParseDocumentsResult>(z.string().max(20_000_000)),
+  /** Conflict-safe single-document save (changed paths only, original values in the filter). */
+  'docs:update': channel<typeof docUpdateSchema, UpdateResult>(docUpdateSchema),
+  'docs:insert': channel<typeof docInsertSchema, InsertResult>(docInsertSchema),
+  'docs:deleteOne': channel<typeof docDeleteOneSchema, { deleted: boolean }>(docDeleteOneSchema),
+  'docs:deleteMany': channel<typeof docManySchema, { deletedCount: number }>(docManySchema),
+  'docs:updateMany': channel<typeof docUpdateManySchema, { matchedCount: number; modifiedCount: number }>(
+    docUpdateManySchema
+  ),
+  /** Before/after of the first 5 matching documents. Never writes. */
+  'docs:previewUpdate': channel<typeof docUpdateManySchema, UpdatePreview>(docUpdateManySchema),
   'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
   /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
   'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),

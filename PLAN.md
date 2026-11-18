@@ -242,9 +242,9 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - Every write button respects `permissions.can(...)` from Phase 4.
 
 **Done when**
-- [ ] Round-trip test: load the "all types" fixture doc, edit one unrelated field, save, re-read; every other field's type and value is byte-identical (compare BSON buffers)
-- [ ] Concurrent-edit test triggers the conflict dialog
-- [ ] Editing a Decimal128 value keeps it Decimal128
+- [x] Round-trip test: load the "all types" fixture doc, edit one unrelated field, save, re-read; every other field's type and value is byte-identical (compare BSON buffers)
+- [x] Concurrent-edit test triggers the conflict dialog
+- [x] Editing a Decimal128 value keeps it Decimal128
 
 ---
 

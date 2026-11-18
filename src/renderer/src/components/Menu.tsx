@@ -28,7 +28,8 @@ export function ContextMenu({ items, children }: { items: MenuItem[]; children: 
             {item.separatorBefore && <ContextMenuSeparator />}
             <ContextMenuItem
               disabled={item.disabled}
-              onSelect={item.onSelect}
+              // Deferred: dialogs opened while the menu is still closing can lose keyboard input.
+              onSelect={() => setTimeout(item.onSelect, 0)}
               title={item.disabled ? item.reason : undefined}
               variant={item.danger ? 'destructive' : 'default'}
               className="max-w-80 flex-col items-start gap-0 text-[13px]"

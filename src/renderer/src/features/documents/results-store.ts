@@ -7,7 +7,7 @@
  */
 import { create } from 'zustand'
 import type { Document } from 'bson'
-import { fromBsonArray } from '@shared/bson-wire'
+import { fromBsonArray, fromBsonBytes, type BsonBytes } from '@shared/bson-wire'
 import { PAGE_SIZE, type CountResult, type QueryFieldError, type QueryText } from '@shared/query'
 import { ipc } from '../../lib/ipc'
 import { queryClient } from '../../lib/query-client'
@@ -23,6 +23,8 @@ export interface TabResults {
   /** 0-based page index. */
   page: number
   docs: Document[]
+  /** The exact bytes each document was loaded as (sent back as `original` when saving). */
+  raw: BsonBytes[]
   error: string | null
   fieldErrors: QueryFieldError[]
   count: CountResult | null
@@ -43,6 +45,7 @@ const initial: TabResults = {
   runId: 0,
   page: 0,
   docs: [],
+  raw: [],
   error: null,
   fieldErrors: [],
   count: null,
@@ -61,6 +64,12 @@ interface ResultsState {
   goToPage: (tabId: string, page: number) => Promise<void>
   cancel: (tabId: string) => Promise<void>
   clear: (tabId: string) => void
+  /** Swap in a document as saved on the server. */
+  replaceAt: (tabId: string, index: number, bytes: BsonBytes) => void
+  /** Drop a deleted document from the page (without refetching). */
+  removeAt: (tabId: string, index: number) => void
+  /** Refetch the current page and recount (after inserts and bulk writes). */
+  refresh: (tabId: string) => Promise<void>
 }
 
 const isCancelled = (e: unknown) => (e as Error)?.name === 'CancelledError'
@@ -105,6 +114,7 @@ export const useResultsStore = create<ResultsState>((set, get) => {
           status: 'done',
           page,
           docs: fromBsonArray(res.docs),
+          raw: res.docs,
           pageMs: Math.round(performance.now() - t0),
           requestedAt: t0,
           receivedAt: performance.now()
@@ -173,6 +183,36 @@ export const useResultsStore = create<ResultsState>((set, get) => {
       await ipc('ops:cancelForTab', tabId).catch(() => {})
       const cur = get().get(tabId)
       patch(tabId, { status: 'cancelled', requestId: cur.requestId + 1 })
+    },
+
+    replaceAt(tabId, index, bytes) {
+      const cur = get().get(tabId)
+      const docs = [...cur.docs]
+      const raw = [...cur.raw]
+      docs[index] = fromBsonBytes(bytes)
+      raw[index] = bytes
+      patch(tabId, { docs, raw })
+    },
+
+    removeAt(tabId, index) {
+      const cur = get().get(tabId)
+      patch(tabId, {
+        docs: cur.docs.filter((_, i) => i !== index),
+        raw: cur.raw.filter((_, i) => i !== index),
+        count: cur.count ? { ...cur.count, value: Math.max(0, cur.count.value - 1) } : cur.count
+      })
+    },
+
+    async refresh(tabId) {
+      const cur = get().get(tabId)
+      if (!cur.ranQuery || !cur.target) return
+      const runId = cur.runId
+      ipc('query:count', { ...cur.target, tabId, query: cur.ranQuery })
+        .then((count) => patch(tabId, { count }, forRun(runId)))
+        .catch(() => {})
+      const requestId = cur.requestId + 1
+      patch(tabId, { requestId, status: 'running' })
+      await fetchPage(tabId, cur.page, requestId)
     },
 
     clear(tabId) {

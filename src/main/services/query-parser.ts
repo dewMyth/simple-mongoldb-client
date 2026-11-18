@@ -156,3 +156,26 @@ export function formatQueryText(text: string, field: ObjectField = 'filter'): st
   if (!r.ok) return null
   return toJSString(r.value, 2) ?? null
 }
+
+/** Parses any shell-syntax value (object or array), for document bodies and update specs. */
+export function parseShellValue(text: string): FieldResultPublic {
+  const t = text.trim()
+  if (!t) return { ok: false, error: { message: 'Nothing to parse' } }
+  let value: unknown
+  try {
+    value = parseFilter(t)
+  } catch (err) {
+    return { ok: false, error: syntaxError(err) }
+  }
+  if (value === '' || value === undefined)
+    return {
+      ok: false,
+      error: {
+        message:
+          'Unsupported expression. Only literals, BSON constructors (ObjectId, ISODate, NumberLong…) and regexes are allowed; functions are never run.'
+      }
+    }
+  return { ok: true, value }
+}
+
+export type FieldResultPublic = FieldResult

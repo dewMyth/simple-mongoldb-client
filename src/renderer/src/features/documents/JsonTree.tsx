@@ -67,12 +67,15 @@ function childEntries(value: unknown): [string, unknown][] {
 export const JsonTree = memo(function JsonTree({
   doc,
   epoch,
-  mode
+  mode,
+  actions
 }: {
   doc: Document
   /** Changes when the user presses the global Expand all / Collapse all. */
   epoch: number
   mode: ExpandMode
+  /** Extra buttons for the hover toolbar (edit, clone, delete…). */
+  actions?: ReactNode
 }) {
   const state = stateFor(doc, epoch, mode)
   // Local counter just to re-render after mutating the (non-reactive) WeakMap state.
@@ -105,6 +108,7 @@ export const JsonTree = memo(function JsonTree({
         >
           {state.mode === 'all' ? <ChevronsDownUp /> : <ChevronsUpDown />}
         </Button>
+        {actions}
         <CopyMenu doc={doc} />
       </div>
       {childEntries(doc).map(([k, v]) => (
