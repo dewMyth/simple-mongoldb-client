@@ -11,6 +11,7 @@ import { formatBytes, formatCount } from '../../lib/format'
 import { useTabsStore } from '../../stores/tabs'
 import { openAggregation } from '../aggregation/open'
 import { openIndexes } from '../indexes/open'
+import { openShell } from '../shell/open'
 import { colorHex } from './colors'
 import { ConnectionDialog } from './ConnectionDialog'
 import { CreateCollectionDialog } from './CreateCollectionDialog'
@@ -171,6 +172,11 @@ function ConnectionNode({ conn, filter, depth }: { conn: SavedConnection; filter
       label: 'Connection info',
       disabled: !isOpen,
       onSelect: () => openTab({ type: 'connection-info', connectionId: conn.id, ns: null, title: conn.name })
+    },
+    {
+      label: 'Open shell',
+      disabled: !isOpen,
+      onSelect: () => openShell(conn.id, conn.name, undefined, { newTab: true })
     },
     {
       label: 'Create database…',
@@ -359,6 +365,7 @@ function DatabaseNode({
   const isExpanded = expanded || (!!f && visible.length > 0)
 
   const items: MenuItem[] = [
+    { label: 'Open shell here', onSelect: () => openShell(connId, name, name, { newTab: true }) },
     {
       label: 'Create collection…',
       disabled: !createColl.allowed,

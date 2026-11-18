@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "dist": "npm run build && electron-builder",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@mongodb-js/mongodb-schema": "^12.8.20",

@@ -7,6 +7,7 @@ import { DocumentsTab } from '../features/documents/DocumentsTab'
 import { AggregationTab } from '../features/aggregation/AggregationTab'
 import { IndexesTab } from '../features/indexes/IndexesTab'
 import { ExplainTab } from '../features/explain/ExplainTab'
+import { ShellTab } from '../features/shell/ShellTab'
 import { useActiveConnections, useConnect, useSavedConnections } from '../features/connections/queries'
 import { Button } from '../components/ui/button'
 import { ErrorBox } from '../components/form'
@@ -14,7 +15,6 @@ import { ErrorBox } from '../components/form'
 /** Tab types that later phases implement; shown as a placeholder until then. */
 const upcoming: Partial<Record<Tab['type'], string>> = {
   schema: 'Schema',
-  shell: 'Shell',
   'import-export': 'Import / Export'
 }
 
@@ -144,6 +144,8 @@ function PaneView({ tab, pane, split }: { tab: Tab; pane: Pane; split: boolean }
         <IndexesTab key={tab.id} tab={tab} />
       ) : tab.type === 'explain' ? (
         <ExplainTab key={tab.id} tab={tab} />
+      ) : tab.type === 'shell' ? (
+        <ShellTab key={tab.id} tab={tab} />
       ) : (
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
           {upcoming[tab.type] ?? tab.type} isn’t available yet.

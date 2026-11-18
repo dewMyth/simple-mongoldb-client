@@ -13,12 +13,14 @@ import {
   KeyRound,
   RotateCcw,
   Rows2,
+  SquareTerminal,
   Table2,
   Workflow,
   X
 } from 'lucide-react'
 import { openAggregation } from '../features/aggregation/open'
 import { openExplain, openIndexes } from '../features/indexes/open'
+import { openShell } from '../features/shell/open'
 import type { QueryText } from '@shared/query'
 import {
   CommandDialog,
@@ -180,6 +182,24 @@ export function CommandPalette() {
         )}
 
         <CommandGroup heading="Commands">
+          {active.map((c) => (
+            <CommandItem
+              key={`shell-${c.id}`}
+              value={`command open shell ${connName(c.id)} ${c.id}`}
+              onSelect={act(() =>
+                openShell(
+                  c.id,
+                  connName(c.id),
+                  currentTab?.connectionId === c.id && currentTab.ns
+                    ? currentTab.ns.split('.')[0]
+                    : undefined,
+                  { newTab: true }
+                )
+              )}
+            >
+              <SquareTerminal /> Open shell on {connName(c.id)}
+            </CommandItem>
+          ))}
           {closedCount > 0 && (
             <CommandItem value="command reopen closed tab" onSelect={act(() => store().reopenClosed())}>
               <RotateCcw /> Reopen closed tab <CommandShortcut>{mod}⇧T</CommandShortcut>

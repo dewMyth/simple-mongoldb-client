@@ -4,6 +4,7 @@ import { registerQueryHandlers } from './query'
 import { registerDocumentHandlers } from './documents'
 import { registerAggregationHandlers } from './aggregation'
 import { registerIndexHandlers } from './indexes'
+import { registerShellHandlers } from './shell'
 
 export function registerIpcHandlers(): void {
   registerAppHandlers()
@@ -12,4 +13,5 @@ export function registerIpcHandlers(): void {
   registerDocumentHandlers()
   registerAggregationHandlers()
   registerIndexHandlers()
+  registerShellHandlers()
 }

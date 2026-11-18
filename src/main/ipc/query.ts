@@ -1,5 +1,5 @@
 import { handle } from './router'
-import { cursors, history, permissions, queries, schemas, workspace } from '../services'
+import { cursors, history, permissions, queries, schemas, shells, workspace } from '../services'
 import { isUnauthorized } from '../services/permission-service'
 
 /**
@@ -37,7 +37,11 @@ export function registerQueryHandlers(): void {
     learnFind(input.connectionId, input.ns, () => schemas.sampleFields(input))
   )
   handle('ops:cancel', (id) => cursors.cancel(id))
-  handle('ops:cancelForTab', (tabId) => cursors.cancelForTab(tabId))
+  // Closing a tab kills its cursors and operations, and ends its shell session.
+  handle('ops:cancelForTab', async (tabId) => {
+    const [ops, sessions] = await Promise.all([cursors.cancelForTab(tabId), shells.closeForTab(tabId)])
+    return ops + sessions
+  })
 
   handle('history:list', ({ connectionId, ns }) => history.list(connectionId, ns))
   handle('history:add', ({ connectionId, ns, query }) => history.add(connectionId, ns, query))

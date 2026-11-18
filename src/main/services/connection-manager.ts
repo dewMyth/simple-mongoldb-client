@@ -15,9 +15,16 @@ interface OpenConnection {
   tunnel?: SshTunnel
   resolved: ResolvedConnection
   info: ActiveConnection
+  /** Effective URI + options (after the SSH tunnel rewrite), for the shell. */
+  target: ShellTarget
 }
 
 const ATLAS_HOST = /\.mongodb(-dev|-qa|-stage)?\.net$/i
+
+export interface ShellTarget {
+  uri: string
+  options: MongoClientOptions
+}
 
 export class ConnectionManager {
   private readonly open = new Map<string, OpenConnection>()
@@ -37,7 +44,7 @@ export class ConnectionManager {
   /** Builds a client (and tunnel) without registering it. */
   private async createClient(
     resolved: ResolvedConnection
-  ): Promise<{ client: MongoClient; tunnel?: SshTunnel }> {
+  ): Promise<{ client: MongoClient; tunnel?: SshTunnel; target: ShellTarget }> {
     let uri = resolved.uri
     let tunnel: SshTunnel | undefined
     const options: MongoClientOptions = {
@@ -80,7 +87,7 @@ export class ConnectionManager {
       await tunnel?.close().catch(() => {})
       throw err
     }
-    return { client, tunnel }
+    return { client, tunnel, target: { uri, options: { ...options } } }
   }
 
   private async describe(client: MongoClient, resolved: ResolvedConnection): Promise<ServerInfo> {
@@ -138,11 +145,11 @@ export class ConnectionManager {
 
     const p = (async () => {
       try {
-        const { client, tunnel } = await this.createClient(resolved)
+        const { client, tunnel, target } = await this.createClient(resolved)
         try {
           const server = await this.describe(client, resolved)
           const info: ActiveConnection = { id: resolved.id, server, connectedAt: Date.now() }
-          this.open.set(resolved.id, { id: resolved.id, client, tunnel, resolved, info })
+          this.open.set(resolved.id, { id: resolved.id, client, tunnel, resolved, info, target })
           this.emit()
           return info
         } catch (err) {
@@ -181,6 +188,16 @@ export class ConnectionManager {
 
   info(id: string): ActiveConnection | null {
     return this.open.get(id)?.info ?? null
+  }
+
+  /**
+   * Where a second client (the embedded shell) should connect: the effective URI (through the
+   * SSH tunnel if any) and driver options. Contains credentials: main process only.
+   */
+  shellTarget(id: string): ShellTarget {
+    const c = this.open.get(id)
+    if (!c) throw new Error('Not connected. Open the connection first.')
+    return { uri: c.target.uri, options: { ...c.target.options } }
   }
 
   resolved(id: string): ResolvedConnection | null {

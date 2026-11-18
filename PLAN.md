@@ -192,7 +192,7 @@ Compass's query bar accepts **shell syntax**, not strict JSON. These must all wo
 
 **Done when**
 - [x] Integration tests with three users (`read`, `readWrite`, `dbAdmin` on different DBs) assert the correct buttons are enabled per namespace
-- [ ] The read-only toggle blocks every write path, including the shell (Phase 9) _(every current write path is blocked in main and tested; the shell arrives in Phase 11)_
+- [x] The read-only toggle blocks every write path, including the shell (Phase 9) _(app write paths are blocked in main; the shell refuses write methods (Phase 11), documented as a guard against accidents, not a security boundary)_
 - [x] An optimistic-mode Unauthorized error disables the action without crashing
 
 ---
@@ -334,9 +334,9 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - `use db`, `show collections`, `it` for cursor iteration, `.pretty()` and the usual helpers all work because the real mongosh runtime is used.
 
 **Done when**
-- [ ] `db.orders.find().limit(3)`, `db.orders.aggregate([...])`, and `it` work as in mongosh
-- [ ] `Ctrl+C` interrupts a long `find` and frees the cursor
-- [ ] In read-only mode, `insertOne` is refused with a message
+- [x] `db.orders.find().limit(3)`, `db.orders.aggregate([...])`, and `it` work as in mongosh
+- [x] `Ctrl+C` interrupts a long `find` and frees the cursor
+- [x] In read-only mode, `insertOne` is refused with a message
 
 ---
 

@@ -30,6 +30,7 @@ import {
 import { workspaceSchema, type Workspace } from './workspace'
 import { createIndexSchema, type IndexBuild, type IndexInfo } from './indexes'
 import { explainSourceSchema, type ExplainResult } from './explain'
+import type { ShellEvalResult, ShellSessionInfo } from './shell'
 import {
   pipelineOptionsSchema,
   pipelineStageSchema,
@@ -146,6 +147,14 @@ export const explainRunSchema = indexTarget.extend({
   tabId: z.string().nullable().optional(),
   source: explainSourceSchema
 })
+
+export const shellStartSchema = z.object({
+  connectionId: connId,
+  tabId: z.string().min(1),
+  db: z.string().max(64).nullable().optional()
+})
+const sessionId = z.string().min(1).max(100)
+export const shellCodeSchema = z.object({ sessionId, code: z.string().max(5_000_000) })
 
 export type ExportCodeResult = { ok: true; code: string } | { ok: false; errors: QueryFieldError[] }
 
@@ -285,6 +294,13 @@ export const ipcContract = {
   'indexes:setHidden': channel<typeof indexHiddenSchema, void>(indexHiddenSchema),
   /** explain("executionStats") for a find or a pipeline, analysed (summary, tree, hints). */
   'explain:run': channel<typeof explainRunSchema, ExplainResult>(explainRunSchema),
+  /** Starts (or resumes) the tab's mongosh session. Credentials never leave main. */
+  'shell:start': channel<typeof shellStartSchema, ShellSessionInfo>(shellStartSchema),
+  'shell:evaluate': channel<typeof shellCodeSchema, ShellEvalResult>(shellCodeSchema),
+  /** Ctrl+C: interrupts the running command and kills its server-side operation. */
+  'shell:interrupt': channel<typeof sessionId, boolean>(sessionId),
+  'shell:complete': channel<typeof shellCodeSchema, string[]>(shellCodeSchema),
+  'shell:close': channel<typeof sessionId, void>(sessionId),
   'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
   /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
   'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),
@@ -365,10 +381,13 @@ export interface IpcEvents {
   'settings:changed': Settings
   'connections:activeChanged': ActiveConnection[]
   'permissions:changed': PermissionSnapshot
+  /** Text printed by a running shell command (print(), console.log…). */
+  'shell:output': { sessionId: string; text: string }
 }
 export type EventName = keyof IpcEvents
 export const ipcEventNames: EventName[] = [
   'settings:changed',
   'connections:activeChanged',
-  'permissions:changed'
+  'permissions:changed',
+  'shell:output'
 ]

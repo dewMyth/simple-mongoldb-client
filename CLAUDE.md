@@ -91,3 +91,13 @@
   Index suggestions follow ESR (equality, sort, range). Explaining a pipeline drops a final $out/$merge.
 - Indexes: main's IndexService; size/usage/multikey/builds are best effort (null without privileges).
   Multikey comes from a hinted queryPlanner explain (isMultiKey on the IXSCAN).
+- Shell: main's ShellService runs @mongosh/node-runtime-worker-thread (loaded lazily with createRequire:
+  main is ESM and the package has no static named exports). It needs a global browser-style `Worker`:
+  services/shell/thread-worker.ts provides one over worker_threads. Sessions use appName
+  `mongo-studio-shell:<id>`: Ctrl+C interrupts and killOps that appName; closing runs db.getMongo().close()
+  (frees cursors) then terminates. Read-only mode patches write methods inside the shell (readOnlyPatch):
+  a guard against accidents, not a security boundary.
+- Native modules (interruptor, used by the shell) must be built for Electron: `postinstall` runs
+  `electron-builder install-app-deps`. Vitest (plain Node) must not import the shell runtime.
+- E2E shell tests read `shell-last-output` (aria-live, plain text, `data-runs` counts commands): xterm only
+  renders visible rows.

@@ -5,6 +5,9 @@ import { WorkspaceService } from './workspace-service'
 import { AggregationService } from './aggregation-service'
 import { IndexService } from './index-service'
 import { ExplainService } from './explain-service'
+import { ShellService } from './shell/shell-service'
+import { BrowserWindow } from 'electron'
+import { isReadOnly } from '@shared/permissions'
 import { PipelineLibrary } from './pipeline-library'
 import type { SavedPipeline } from '@shared/pipeline'
 import Store from 'electron-store'
@@ -74,3 +77,10 @@ export const pipelineLibrary = new PipelineLibrary({
 })
 export const indexes = new IndexService(connections)
 export const explains = new ExplainService(connections, cursors)
+export const shells = new ShellService(
+  connections,
+  (connectionId) => isReadOnly(permissions.get(connectionId)),
+  (sessionId, text) => {
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('shell:output', { sessionId, text })
+  }
+)
