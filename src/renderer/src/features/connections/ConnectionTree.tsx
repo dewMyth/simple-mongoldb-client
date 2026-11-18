@@ -1,11 +1,11 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from 'react'
-import clsx from 'clsx'
+import { cn } from '@renderer/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Clock, Database, Eye, Folder, Lock, Plug, Table2 } from 'lucide-react'
 import type { CollectionInfo, SavedConnection } from '@shared/connection'
 import { ContextMenu, type MenuItem } from '../../components/Menu'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { Spinner } from '../../components/ui'
+import { Spinner } from '../../components/form'
 import { ipc } from '../../lib/ipc'
 import { formatBytes, formatCount } from '../../lib/format'
 import { useTabsStore } from '../../stores/tabs'
@@ -37,7 +37,11 @@ export function ConnectionTree({ filter }: { filter: string }) {
 
   if (isLoading) return null
   if (!saved.length)
-    return <div className="p-6 text-center text-xs text-muted">No connections yet. Click + to add one.</div>
+    return (
+      <div className="p-6 text-center text-xs text-muted-foreground">
+        No connections yet. Click + to add one.
+      </div>
+    )
 
   return (
     <div className="flex flex-col py-1 text-[13px]" role="tree" data-testid="connection-tree">
@@ -86,14 +90,14 @@ function Row({
       data-testid={testId}
       onClick={(e) => (onClick ? onClick(e) : onToggle?.())}
       onDoubleClick={onDoubleClick}
-      className={clsx(
+      className={cn(
         'group flex h-7 cursor-default items-center gap-1.5 pr-2 hover:bg-panel-2',
         active && 'bg-panel-2'
       )}
       style={{ paddingLeft: 6 + depth * 14 }}
     >
       <span
-        className="flex w-3.5 justify-center text-muted"
+        className="flex w-3.5 justify-center text-muted-foreground"
         onClick={(e) => {
           if (onToggle && onClick) {
             e.stopPropagation()
@@ -102,12 +106,14 @@ function Row({
         }}
       >
         {onToggle ? (
-          <ChevronRight size={12} className={clsx('transition-transform', expanded && 'rotate-90')} />
+          <ChevronRight size={12} className={cn('transition-transform', expanded && 'rotate-90')} />
         ) : null}
       </span>
-      <span className="flex shrink-0 items-center text-muted">{icon}</span>
+      <span className="flex shrink-0 items-center text-muted-foreground">{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {right ? <span className="shrink-0 text-[11px] text-muted tabular-nums">{right}</span> : null}
+      {right ? (
+        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{right}</span>
+      ) : null}
     </div>
   )
 }
@@ -121,7 +127,7 @@ function FolderNode({ name, children }: { name: string; children: ReactNode }) {
         expanded={open}
         onToggle={() => setOpen(!open)}
         icon={<Folder size={14} />}
-        label={<span className="text-muted">{name}</span>}
+        label={<span className="text-muted-foreground">{name}</span>}
       />
       {open && children}
     </>
@@ -198,22 +204,24 @@ function ConnectionNode({ conn, filter, depth }: { conn: SavedConnection; filter
             }
             label={
               <span className="flex items-center gap-1.5">
-                <span className={clsx(isOpen && 'font-medium')}>{conn.name}</span>
-                {conn.readOnly && <Lock size={11} className="text-muted" aria-label="Read-only" />}
+                <span className={cn(isOpen && 'font-medium')}>{conn.name}</span>
+                {conn.readOnly && <Lock size={11} className="text-muted-foreground" aria-label="Read-only" />}
                 {conn.production && (
-                  <span className="rounded bg-danger/15 px-1 text-[9px] font-bold text-danger">PROD</span>
+                  <span className="rounded bg-destructive/15 px-1 text-[9px] font-bold text-destructive">
+                    PROD
+                  </span>
                 )}
               </span>
             }
             right={
               connect.isPending ? (
-                <Spinner size={11} />
+                <Spinner className="size-3" />
               ) : isOpen ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-label="Connected" />
               ) : (
                 <button
                   type="button"
-                  className="hidden rounded px-1.5 text-[11px] text-accent group-hover:block hover:bg-bg"
+                  className="hidden rounded px-1.5 text-[11px] text-primary group-hover:block hover:bg-background"
                   onClick={(e) => {
                     e.stopPropagation()
                     doConnect()
@@ -228,7 +236,7 @@ function ConnectionNode({ conn, filter, depth }: { conn: SavedConnection; filter
       </ContextMenu>
       {connect.error && !isOpen && (
         <div
-          className="selectable mx-2 my-1 rounded border border-danger/40 bg-danger/10 px-2 py-1.5 text-[11px] text-danger"
+          className="selectable mx-2 my-1 rounded border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive"
           style={{ marginLeft: 20 + depth * 14 }}
         >
           {connect.error.message}
@@ -278,11 +286,18 @@ function DatabaseList({ connId, filter, depth }: { connId: string; filter: strin
   const { data, isLoading, error } = useDatabases(connId, true)
   if (isLoading)
     return (
-      <Row depth={depth} icon={<Spinner size={11} />} label={<span className="text-muted">Loading…</span>} />
+      <Row
+        depth={depth}
+        icon={<Spinner className="size-3" />}
+        label={<span className="text-muted-foreground">Loading…</span>}
+      />
     )
   if (error)
     return (
-      <div className="selectable px-3 py-1 text-[11px] text-danger" style={{ paddingLeft: 20 + depth * 14 }}>
+      <div
+        className="selectable px-3 py-1 text-[11px] text-destructive"
+        style={{ paddingLeft: 20 + depth * 14 }}
+      >
         {error.message}
       </div>
     )
@@ -356,13 +371,13 @@ function DatabaseNode({
       {isExpanded && isLoading && (
         <Row
           depth={depth + 1}
-          icon={<Spinner size={11} />}
-          label={<span className="text-muted">Loading…</span>}
+          icon={<Spinner className="size-3" />}
+          label={<span className="text-muted-foreground">Loading…</span>}
         />
       )}
       {isExpanded && error && (
         <div
-          className="selectable py-1 text-[11px] text-danger"
+          className="selectable py-1 text-[11px] text-destructive"
           style={{ paddingLeft: 20 + (depth + 1) * 14 }}
         >
           {error.message}
@@ -373,7 +388,10 @@ function DatabaseNode({
           <CollectionNode key={c.name} connId={connId} db={name} coll={c} depth={depth + 1} />
         ))}
       {isExpanded && colls && !colls.length && (
-        <div className="py-1 text-[11px] text-muted" style={{ paddingLeft: 26 + (depth + 1) * 14 }}>
+        <div
+          className="py-1 text-[11px] text-muted-foreground"
+          style={{ paddingLeft: 26 + (depth + 1) * 14 }}
+        >
           No collections
         </div>
       )}
@@ -460,7 +478,7 @@ function CollectionNode({
             label={
               <span title={coll.viewOn ? `View on ${coll.viewOn}` : undefined}>
                 {coll.name}
-                {coll.capped && <span className="ml-1 text-[10px] text-muted">capped</span>}
+                {coll.capped && <span className="ml-1 text-[10px] text-muted-foreground">capped</span>}
               </span>
             }
             right={formatCount(coll.count)}

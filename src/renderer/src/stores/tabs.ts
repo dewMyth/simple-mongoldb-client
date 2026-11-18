@@ -3,6 +3,8 @@ import { emptyQueryText, type QueryText } from '@shared/query'
 import { ipc } from '../lib/ipc'
 
 export type TabType = 'documents' | 'connection-info'
+/** How a documents tab renders results. */
+export type ViewMode = 'tree' | 'text'
 
 export interface Tab {
   id: string
@@ -13,9 +15,10 @@ export interface Tab {
   title: string
   /** Query-bar text for documents tabs. */
   query: QueryText
+  viewMode: ViewMode
 }
 
-export type NewTab = Omit<Tab, 'id' | 'query'> & { query?: QueryText }
+export type NewTab = Omit<Tab, 'id' | 'query' | 'viewMode'> & { query?: QueryText; viewMode?: ViewMode }
 
 /** Kill server-side cursors/ops owned by a tab. Fire-and-forget: closing must never block. */
 function releaseTab(id: string) {
@@ -30,6 +33,7 @@ interface TabsState {
   closeForConnection: (connectionId: string) => void
   activate: (id: string) => void
   setQuery: (id: string, query: QueryText) => void
+  setViewMode: (id: string, viewMode: ViewMode) => void
 }
 
 let counter = 0
@@ -53,7 +57,12 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const id = newId()
     const idx = tabs.findIndex((t) => t.id === activeId)
     const next = [...tabs]
-    next.splice(idx >= 0 ? idx + 1 : next.length, 0, { ...tab, query: tab.query ?? emptyQueryText, id })
+    next.splice(idx >= 0 ? idx + 1 : next.length, 0, {
+      ...tab,
+      query: tab.query ?? emptyQueryText,
+      viewMode: tab.viewMode ?? 'tree',
+      id
+    })
     set({ tabs: next, activeId: id })
     return id
   },
@@ -77,5 +86,8 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   },
   setQuery(id, query) {
     set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, query } : t)) })
+  },
+  setViewMode(id, viewMode) {
+    set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, viewMode } : t)) })
   }
 }))

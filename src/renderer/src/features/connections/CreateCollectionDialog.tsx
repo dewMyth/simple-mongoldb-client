@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { validateCollectionName, validateDatabaseName } from '@shared/connection'
 import { Dialog } from '../../components/Dialog'
-import { Button, Checkbox, ErrorBox, Field, Input, Select, Spinner } from '../../components/ui'
+import { CheckboxField, ErrorBox, Field, SimpleSelect, Spinner } from '../../components/form'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
 import { ipc } from '../../lib/ipc'
 
 /** Creates a collection; when `db` is not given it creates a database (with its first collection). */
@@ -67,9 +69,10 @@ export function CreateCollectionDialog({
       description={db ? undefined : 'MongoDB creates a database together with its first collection.'}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button
-            variant="primary"
             onClick={submit}
             disabled={busy || (touched && invalid)}
             data-testid="create-collection-submit"
@@ -105,12 +108,16 @@ export function CreateCollectionDialog({
           />
         </Field>
         <Field label="Type">
-          <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-            <option value="normal">Standard</option>
-            <option value="capped">Capped</option>
-            <option value="timeseries">Time series</option>
-            <option value="clustered">Clustered (by _id)</option>
-          </Select>
+          <SimpleSelect
+            value={kind}
+            onValueChange={setKind}
+            options={[
+              { value: 'normal', label: 'Standard' },
+              { value: 'capped', label: 'Capped' },
+              { value: 'timeseries', label: 'Time series' },
+              { value: 'clustered', label: 'Clustered (by _id)' }
+            ]}
+          />
         </Field>
         {kind === 'capped' && (
           <div className="grid grid-cols-2 gap-3">
@@ -141,19 +148,20 @@ export function CreateCollectionDialog({
               <Input value={metaField} onChange={(e) => setMetaField(e.target.value)} />
             </Field>
             <Field label="Granularity">
-              <Select
+              <SimpleSelect
                 value={granularity}
-                onChange={(e) => setGranularity(e.target.value as typeof granularity)}
-              >
-                <option value="seconds">seconds</option>
-                <option value="minutes">minutes</option>
-                <option value="hours">hours</option>
-              </Select>
+                onValueChange={setGranularity}
+                options={[
+                  { value: 'seconds', label: 'seconds' },
+                  { value: 'minutes', label: 'minutes' },
+                  { value: 'hours', label: 'hours' }
+                ]}
+              />
             </Field>
           </>
         )}
         {kind === 'clustered' && (
-          <Checkbox checked disabled onChange={() => {}} label="Clustered index on _id (unique)" />
+          <CheckboxField checked disabled onChange={() => {}} label="Clustered index on _id (unique)" />
         )}
         {error && <ErrorBox>{error}</ErrorBox>}
         <button type="submit" hidden />

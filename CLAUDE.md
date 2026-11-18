@@ -24,3 +24,13 @@
   (`WorkerRuntime` with `evaluate`, `getCompletions`, `interrupt`, `terminate`). TypeScript is pinned to 6.0
   because typescript-eslint doesn't support 7 yet.
 - Every driver read that returns user documents must spread `PRESERVE_TYPES` (src/main/services/bson-options.ts); otherwise the driver turns Int64/Double/Int32 into JS numbers and types are lost.
+- UI is shadcn/ui (new-york, Tailwind v4, unified `radix-ui` package). Generated components live in
+  src/renderer/src/components/ui and are ours to edit (sizes were tightened for a desktop app).
+  App-level helpers built on them: components/form.tsx, Dialog.tsx, ConfirmDialog.tsx, Menu.tsx, IconButton.tsx.
+  Use shadcn tokens (`bg-background`, `text-muted-foreground`, `bg-primary`, `text-destructive`…); `panel`,
+  `panel-2`, `warn`, `ok` and `json-*` (one colour per BSON type) are app extras in index.css.
+- Adding shadcn components: `npx shadcn@latest add <name>`, then (1) replace `from "cn"` with
+  `from "@renderer/lib/utils"` in the new files and (2) check package.json: the CLI mis-resolves the utils
+  alias and installs an unrelated npm package called `cn`, which must be removed.
+- Document views: Tree (features/documents/JsonTree.tsx, collapsible, colour per BSON type) and Text (shell
+  syntax). Type detection/display lives in src/shared/bson-types.ts.

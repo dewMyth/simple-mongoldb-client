@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2, FolderOpen } from 'lucide-react'
 import {
   connectionColors,
@@ -16,8 +15,13 @@ import {
   validateUri,
   type ConnectionFields
 } from '@shared/connection-fields'
+import { cn } from '@renderer/lib/utils'
 import { Dialog } from '../../components/Dialog'
-import { Badge, Button, Checkbox, ErrorBox, Field, Input, Select, Spinner } from '../../components/ui'
+import { CheckboxField, ErrorBox, Field, SimpleSelect, Spinner, StatusBadge } from '../../components/form'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { Textarea } from '../../components/ui/textarea'
 import { ipc } from '../../lib/ipc'
 import { colorHex } from './colors'
 import { useConnect, useSaveConnection } from './queries'
@@ -87,6 +91,14 @@ const topologyLabel: Record<ServerInfo['topology'], string> = {
   loadBalanced: 'Load balanced',
   unknown: 'Unknown'
 }
+
+const sections: [Section, string][] = [
+  ['general', 'General'],
+  ['auth', 'Authentication'],
+  ['tls', 'TLS / SSL'],
+  ['ssh', 'SSH tunnel'],
+  ['advanced', 'Advanced']
+]
 
 export function ConnectionDialog({
   open,
@@ -177,6 +189,7 @@ export function ConnectionDialog({
       footer={
         <>
           <Button
+            variant="outline"
             onClick={onTest}
             disabled={!!uriError || testing || busy}
             data-testid="test-connection"
@@ -184,16 +197,18 @@ export function ConnectionDialog({
           >
             {testing ? <Spinner /> : null} Test connection
           </Button>
-          <Button onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => onSave(false)} disabled={!!uriError || busy} data-testid="save-connection">
-            Save
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
           </Button>
           <Button
-            variant="primary"
-            onClick={() => onSave(true)}
+            variant="outline"
+            onClick={() => onSave(false)}
             disabled={!!uriError || busy}
-            data-testid="save-connect"
+            data-testid="save-connection"
           >
+            Save
+          </Button>
+          <Button onClick={() => onSave(true)} disabled={!!uriError || busy} data-testid="save-connect">
             {busy ? <Spinner /> : null} Save &amp; connect
           </Button>
         </>
@@ -224,10 +239,10 @@ export function ConnectionDialog({
                   type="button"
                   aria-label={`Colour ${c}`}
                   onClick={() => patch({ color: c })}
-                  className={clsx(
-                    'h-5 w-5 rounded-full border',
-                    state.color === c ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg' : '',
-                    c === 'none' ? 'border-dashed border-muted' : 'border-transparent'
+                  className={cn(
+                    'size-5 rounded-full border',
+                    state.color === c && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
+                    c === 'none' ? 'border-dashed border-muted-foreground' : 'border-transparent'
                   )}
                   style={{ background: colorHex[c] ?? 'transparent' }}
                 />
@@ -236,289 +251,271 @@ export function ConnectionDialog({
           </Field>
         </div>
 
-        <div className="flex gap-1 rounded-md bg-panel p-0.5 text-xs">
-          {(['uri', 'fields'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              disabled={m === 'fields' && !fields}
-              onClick={() => setMode(m)}
-              className={clsx(
-                'flex-1 rounded px-3 py-1.5 font-medium disabled:opacity-40',
-                mode === m ? 'bg-bg text-fg shadow-sm' : 'text-muted hover:text-fg'
-              )}
+        <Tabs value={fields ? mode : 'uri'} onValueChange={(v) => setMode(v as Mode)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="uri">Connection string</TabsTrigger>
+            <TabsTrigger value="fields" disabled={!fields}>
+              Fields
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="uri" className="pt-2">
+            <Field
+              label="Connection string"
+              error={uriError}
+              hint={
+                savedPasswordInUse
+                  ? 'The saved password will be used. Type a new one in the string to replace it.'
+                  : undefined
+              }
             >
-              {m === 'uri' ? 'Connection string' : 'Fields'}
-            </button>
-          ))}
-        </div>
+              <Textarea
+                value={state.uri}
+                spellCheck={false}
+                rows={3}
+                data-testid="conn-uri"
+                aria-invalid={!!uriError}
+                onChange={(e) => patch({ uri: e.target.value })}
+                className="selectable min-h-0 resize-none font-mono text-xs"
+              />
+            </Field>
+          </TabsContent>
 
-        {mode === 'uri' || !fields ? (
-          <Field
-            label="Connection string"
-            error={uriError}
-            hint={
-              savedPasswordInUse
-                ? 'The saved password will be used. Type a new one in the string to replace it.'
-                : undefined
-            }
-          >
-            <textarea
-              value={state.uri}
-              spellCheck={false}
-              rows={3}
-              data-testid="conn-uri"
-              onChange={(e) => patch({ uri: e.target.value })}
-              className={clsx(
-                'selectable w-full resize-none rounded-md border bg-bg px-2.5 py-2 font-mono text-xs outline-none focus:border-accent',
-                uriError ? 'border-danger' : 'border-border'
-              )}
-            />
-          </Field>
-        ) : (
-          <div className="flex gap-4">
-            <nav className="flex w-36 shrink-0 flex-col gap-0.5 text-xs">
-              {(
-                [
-                  ['general', 'General'],
-                  ['auth', 'Authentication'],
-                  ['tls', 'TLS / SSL'],
-                  ['ssh', 'SSH tunnel'],
-                  ['advanced', 'Advanced']
-                ] as const
-              ).map(([k, label]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setSection(k)}
-                  className={clsx(
-                    'rounded px-2.5 py-1.5 text-left',
-                    section === k ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:text-fg'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-            <div className="flex min-w-0 flex-1 flex-col gap-3">
-              {section === 'general' && (
-                <>
-                  <Field label="Scheme">
-                    <Select
-                      value={fields.scheme}
-                      onChange={(e) => setField('scheme', e.target.value as ConnectionFields['scheme'])}
+          {fields && (
+            <TabsContent value="fields" className="pt-2">
+              <Tabs
+                value={section}
+                onValueChange={(v) => setSection(v as Section)}
+                orientation="vertical"
+                className="flex-row gap-4"
+              >
+                <TabsList className="h-fit w-36 shrink-0 flex-col items-stretch bg-transparent p-0">
+                  {sections.map(([k, label]) => (
+                    <TabsTrigger
+                      key={k}
+                      value={k}
+                      className="justify-start px-2.5 py-1.5 text-xs data-[state=active]:bg-accent data-[state=active]:shadow-none"
                     >
-                      <option value="mongodb">mongodb://</option>
-                      <option value="mongodb+srv">mongodb+srv:// (DNS seed list, e.g. Atlas)</option>
-                    </Select>
-                  </Field>
-                  <Field
-                    label={fields.scheme === 'mongodb+srv' ? 'Host' : 'Hosts'}
-                    hint={
-                      fields.scheme === 'mongodb' ? 'host:port, comma-separated for replica sets' : undefined
-                    }
-                  >
-                    <Input
-                      value={fields.hosts.join(',')}
-                      onChange={(e) => setField('hosts', e.target.value.split(','))}
-                      placeholder="localhost:27017"
-                    />
-                  </Field>
-                  {fields.scheme === 'mongodb' && (
-                    <Checkbox
-                      checked={fields.directConnection}
-                      onChange={(v) => setField('directConnection', v)}
-                      label="Direct connection (connect to this host only, don't discover the replica set)"
-                    />
-                  )}
-                  <Field label="Default database" hint="Optional">
-                    <Input
-                      value={fields.defaultDatabase}
-                      onChange={(e) => setField('defaultDatabase', e.target.value)}
-                    />
-                  </Field>
-                </>
-              )}
+                      {label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              {section === 'auth' && (
-                <>
-                  <Field label="Method">
-                    <Select
-                      value={fields.authMechanism}
-                      onChange={(e) =>
-                        setField('authMechanism', e.target.value as ConnectionFields['authMechanism'])
+                <div className="min-w-0 flex-1">
+                  <TabsContent value="general" className="flex flex-col gap-3">
+                    <Field label="Scheme">
+                      <SimpleSelect
+                        value={fields.scheme}
+                        onValueChange={(v) => setField('scheme', v)}
+                        options={[
+                          { value: 'mongodb', label: 'mongodb://' },
+                          { value: 'mongodb+srv', label: 'mongodb+srv:// (DNS seed list, e.g. Atlas)' }
+                        ]}
+                      />
+                    </Field>
+                    <Field
+                      label={fields.scheme === 'mongodb+srv' ? 'Host' : 'Hosts'}
+                      hint={
+                        fields.scheme === 'mongodb'
+                          ? 'host:port, comma-separated for replica sets'
+                          : undefined
                       }
                     >
-                      <option value="none">None</option>
-                      <option value="DEFAULT">Username / password (default SCRAM)</option>
-                      <option value="SCRAM-SHA-256">SCRAM-SHA-256</option>
-                      <option value="SCRAM-SHA-1">SCRAM-SHA-1</option>
-                      <option value="MONGODB-X509">X.509 certificate</option>
-                    </Select>
-                  </Field>
-                  {fields.authMechanism !== 'none' && (
-                    <>
-                      <Field
-                        label="Username"
-                        hint={
-                          fields.authMechanism === 'MONGODB-X509'
-                            ? 'Optional: the certificate subject'
-                            : undefined
-                        }
-                      >
-                        <Input
-                          value={fields.username}
-                          onChange={(e) => setField('username', e.target.value)}
-                        />
-                      </Field>
-                      {fields.authMechanism !== 'MONGODB-X509' && (
+                      <Input
+                        value={fields.hosts.join(',')}
+                        onChange={(e) => setField('hosts', e.target.value.split(','))}
+                        placeholder="localhost:27017"
+                      />
+                    </Field>
+                    {fields.scheme === 'mongodb' && (
+                      <CheckboxField
+                        checked={fields.directConnection}
+                        onChange={(v) => setField('directConnection', v)}
+                        label="Direct connection (connect to this host only, don't discover the replica set)"
+                      />
+                    )}
+                    <Field label="Default database" hint="Optional">
+                      <Input
+                        value={fields.defaultDatabase}
+                        onChange={(e) => setField('defaultDatabase', e.target.value)}
+                      />
+                    </Field>
+                  </TabsContent>
+
+                  <TabsContent value="auth" className="flex flex-col gap-3">
+                    <Field label="Method">
+                      <SimpleSelect
+                        value={fields.authMechanism}
+                        onValueChange={(v) => setField('authMechanism', v)}
+                        options={[
+                          { value: 'none', label: 'None' },
+                          { value: 'DEFAULT', label: 'Username / password (default SCRAM)' },
+                          { value: 'SCRAM-SHA-256', label: 'SCRAM-SHA-256' },
+                          { value: 'SCRAM-SHA-1', label: 'SCRAM-SHA-1' },
+                          { value: 'MONGODB-X509', label: 'X.509 certificate' }
+                        ]}
+                      />
+                    </Field>
+                    {fields.authMechanism !== 'none' && (
+                      <>
                         <Field
-                          label="Password"
+                          label="Username"
                           hint={
-                            savedPasswordInUse ? (
-                              <span>
-                                A password is saved.{' '}
-                                <button
-                                  type="button"
-                                  className="text-accent underline"
-                                  onClick={() => patch({ keepPassword: false })}
-                                >
-                                  Clear it
-                                </button>
-                              </span>
-                            ) : undefined
+                            fields.authMechanism === 'MONGODB-X509'
+                              ? 'Optional: the certificate subject'
+                              : undefined
                           }
                         >
                           <Input
-                            type="password"
-                            value={fields.password}
-                            placeholder={savedPasswordInUse ? '•••••••• (saved)' : ''}
-                            onChange={(e) => setField('password', e.target.value)}
+                            value={fields.username}
+                            onChange={(e) => setField('username', e.target.value)}
                           />
                         </Field>
-                      )}
-                      <Field label="Authentication database (authSource)" hint="Usually admin">
-                        <Input
-                          value={fields.authSource}
-                          placeholder="admin"
-                          onChange={(e) => setField('authSource', e.target.value)}
-                        />
-                      </Field>
-                      {fields.authMechanism === 'MONGODB-X509' && fields.tls === 'off' && (
-                        <ErrorBox>X.509 authentication requires TLS. Turn TLS on.</ErrorBox>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-
-              {section === 'tls' && (
-                <>
-                  <Field label="TLS/SSL">
-                    <Select
-                      value={fields.tls}
-                      onChange={(e) => setField('tls', e.target.value as ConnectionFields['tls'])}
-                    >
-                      <option value="default">Default (on for mongodb+srv, off otherwise)</option>
-                      <option value="on">On</option>
-                      <option value="off">Off</option>
-                    </Select>
-                  </Field>
-                  {fields.tls !== 'off' && (
-                    <>
-                      <FileField
-                        label="Certificate authority (CA) file"
-                        value={fields.tlsCAFile}
-                        onChange={(v) => setField('tlsCAFile', v)}
-                        onBrowse={() => pickFile('Choose CA file', (p) => setField('tlsCAFile', p))}
-                      />
-                      <FileField
-                        label="Client certificate and key (PEM)"
-                        hint="Required for X.509 authentication"
-                        value={fields.tlsCertificateKeyFile}
-                        onChange={(v) => setField('tlsCertificateKeyFile', v)}
-                        onBrowse={() =>
-                          pickFile('Choose client certificate', (p) => setField('tlsCertificateKeyFile', p))
-                        }
-                      />
-                      {fields.tlsCertificateKeyFile && (
-                        <Field
-                          label="Client key password"
-                          hint={
-                            existing?.hasSecrets.tlsCertificateKeyFilePassword
-                              ? 'Saved. Type to replace.'
-                              : 'Only if the key is encrypted'
-                          }
-                        >
+                        {fields.authMechanism !== 'MONGODB-X509' && (
+                          <Field
+                            label="Password"
+                            hint={
+                              savedPasswordInUse ? (
+                                <span>
+                                  A password is saved.{' '}
+                                  <button
+                                    type="button"
+                                    className="text-primary underline"
+                                    onClick={() => patch({ keepPassword: false })}
+                                  >
+                                    Clear it
+                                  </button>
+                                </span>
+                              ) : undefined
+                            }
+                          >
+                            <Input
+                              type="password"
+                              value={fields.password}
+                              placeholder={savedPasswordInUse ? '•••••••• (saved)' : ''}
+                              onChange={(e) => setField('password', e.target.value)}
+                            />
+                          </Field>
+                        )}
+                        <Field label="Authentication database (authSource)" hint="Usually admin">
                           <Input
-                            type="password"
-                            value={state.tlsKeyPassword}
-                            onChange={(e) => patch({ tlsKeyPassword: e.target.value })}
+                            value={fields.authSource}
+                            placeholder="admin"
+                            onChange={(e) => setField('authSource', e.target.value)}
                           />
                         </Field>
-                      )}
-                      <Checkbox
-                        checked={fields.tlsAllowInvalidCertificates}
-                        onChange={(v) => setField('tlsAllowInvalidCertificates', v)}
-                        label="Allow invalid certificates (insecure)"
+                        {fields.authMechanism === 'MONGODB-X509' && fields.tls === 'off' && (
+                          <ErrorBox>X.509 authentication requires TLS. Turn TLS on.</ErrorBox>
+                        )}
+                      </>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="tls" className="flex flex-col gap-3">
+                    <Field label="TLS/SSL">
+                      <SimpleSelect
+                        value={fields.tls}
+                        onValueChange={(v) => setField('tls', v)}
+                        options={[
+                          { value: 'default', label: 'Default (on for mongodb+srv, off otherwise)' },
+                          { value: 'on', label: 'On' },
+                          { value: 'off', label: 'Off' }
+                        ]}
                       />
-                      <Checkbox
-                        checked={fields.tlsAllowInvalidHostnames}
-                        onChange={(v) => setField('tlsAllowInvalidHostnames', v)}
-                        label="Allow invalid host names (insecure)"
+                    </Field>
+                    {fields.tls !== 'off' && (
+                      <>
+                        <FileField
+                          label="Certificate authority (CA) file"
+                          value={fields.tlsCAFile}
+                          onChange={(v) => setField('tlsCAFile', v)}
+                          onBrowse={() => pickFile('Choose CA file', (p) => setField('tlsCAFile', p))}
+                        />
+                        <FileField
+                          label="Client certificate and key (PEM)"
+                          hint="Required for X.509 authentication"
+                          value={fields.tlsCertificateKeyFile}
+                          onChange={(v) => setField('tlsCertificateKeyFile', v)}
+                          onBrowse={() =>
+                            pickFile('Choose client certificate', (p) => setField('tlsCertificateKeyFile', p))
+                          }
+                        />
+                        {fields.tlsCertificateKeyFile && (
+                          <Field
+                            label="Client key password"
+                            hint={
+                              existing?.hasSecrets.tlsCertificateKeyFilePassword
+                                ? 'Saved. Type to replace.'
+                                : 'Only if the key is encrypted'
+                            }
+                          >
+                            <Input
+                              type="password"
+                              value={state.tlsKeyPassword}
+                              onChange={(e) => patch({ tlsKeyPassword: e.target.value })}
+                            />
+                          </Field>
+                        )}
+                        <CheckboxField
+                          checked={fields.tlsAllowInvalidCertificates}
+                          onChange={(v) => setField('tlsAllowInvalidCertificates', v)}
+                          label="Allow invalid certificates (insecure)"
+                        />
+                        <CheckboxField
+                          checked={fields.tlsAllowInvalidHostnames}
+                          onChange={(v) => setField('tlsAllowInvalidHostnames', v)}
+                          label="Allow invalid host names (insecure)"
+                        />
+                      </>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="ssh" className="flex flex-col gap-3">
+                    <SshSection
+                      state={state}
+                      patch={patch}
+                      existing={existing}
+                      pickFile={pickFile}
+                      isSrv={fields.scheme === 'mongodb+srv'}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="advanced" className="flex flex-col gap-3">
+                    <Field label="Replica set name">
+                      <Input
+                        value={fields.replicaSet}
+                        onChange={(e) => setField('replicaSet', e.target.value)}
                       />
-                    </>
-                  )}
-                </>
-              )}
+                    </Field>
+                    <Field label="Read preference">
+                      <SimpleSelect
+                        value={fields.readPreference}
+                        onValueChange={(v) => setField('readPreference', v)}
+                        options={[
+                          { value: '', label: 'Default (primary)' },
+                          { value: 'primary', label: 'primary' },
+                          { value: 'primaryPreferred', label: 'primaryPreferred' },
+                          { value: 'secondary', label: 'secondary' },
+                          { value: 'secondaryPreferred', label: 'secondaryPreferred' },
+                          { value: 'nearest', label: 'nearest' }
+                        ]}
+                      />
+                    </Field>
+                    <Field label="App name" hint="Shown in server logs and currentOp">
+                      <Input
+                        value={fields.appName}
+                        placeholder="Mongo Studio"
+                        onChange={(e) => setField('appName', e.target.value)}
+                      />
+                    </Field>
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </TabsContent>
+          )}
+        </Tabs>
 
-              {section === 'ssh' && (
-                <SshSection
-                  state={state}
-                  patch={patch}
-                  existing={existing}
-                  pickFile={pickFile}
-                  isSrv={fields.scheme === 'mongodb+srv'}
-                />
-              )}
-
-              {section === 'advanced' && (
-                <>
-                  <Field label="Replica set name">
-                    <Input
-                      value={fields.replicaSet}
-                      onChange={(e) => setField('replicaSet', e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Read preference">
-                    <Select
-                      value={fields.readPreference}
-                      onChange={(e) =>
-                        setField('readPreference', e.target.value as ConnectionFields['readPreference'])
-                      }
-                    >
-                      <option value="">Default (primary)</option>
-                      <option value="primary">primary</option>
-                      <option value="primaryPreferred">primaryPreferred</option>
-                      <option value="secondary">secondary</option>
-                      <option value="secondaryPreferred">secondaryPreferred</option>
-                      <option value="nearest">nearest</option>
-                    </Select>
-                  </Field>
-                  <Field label="App name" hint="Shown in server logs and currentOp">
-                    <Input
-                      value={fields.appName}
-                      placeholder="Mongo Studio"
-                      onChange={(e) => setField('appName', e.target.value)}
-                    />
-                  </Field>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+        <div className="grid grid-cols-2 gap-3 border-t pt-3">
           <Field label="Server selection timeout (ms)" hint="How long to wait for a reachable server">
             <Input
               type="number"
@@ -529,13 +526,13 @@ export function ConnectionDialog({
               onChange={(e) => patch({ serverSelectionTimeoutMS: Number(e.target.value) || 10_000 })}
             />
           </Field>
-          <div className="flex flex-col justify-center gap-2">
-            <Checkbox
+          <div className="flex flex-col justify-center gap-2.5">
+            <CheckboxField
               checked={state.readOnly}
               onChange={(v) => patch({ readOnly: v })}
               label="Read-only (block all writes)"
             />
-            <Checkbox
+            <CheckboxField
               checked={state.production}
               onChange={(v) => patch({ production: v })}
               label="Production (confirm every write)"
@@ -546,7 +543,7 @@ export function ConnectionDialog({
         {insecureTls && (
           <div className="flex items-center gap-2 text-xs text-warn">
             <AlertTriangle size={14} />
-            <Badge tone="warn">Insecure TLS</Badge>
+            <StatusBadge tone="warn">Insecure TLS</StatusBadge>
             Certificate validation is disabled. Only use this for development.
           </div>
         )}
@@ -558,18 +555,18 @@ export function ConnectionDialog({
           >
             <CheckCircle2 size={16} className="mt-0.5 text-ok" />
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-              <span className="text-muted">Server</span>
+              <span className="text-muted-foreground">Server</span>
               <span>
                 MongoDB {testResult.version}
                 {testResult.isEnterprise ? ' Enterprise' : ''}
               </span>
-              <span className="text-muted">Topology</span>
+              <span className="text-muted-foreground">Topology</span>
               <span>
                 {testResult.isAtlas ? 'Atlas · ' : ''}
                 {topologyLabel[testResult.topology]}
                 {testResult.replicaSetName ? ` (${testResult.replicaSetName})` : ''}
               </span>
-              <span className="text-muted">Latency</span>
+              <span className="text-muted-foreground">Latency</span>
               <span>{testResult.latencyMs} ms</span>
             </div>
           </div>
@@ -597,8 +594,14 @@ function FileField({
     <Field label={label} hint={hint}>
       <div className="flex gap-2">
         <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="/path/to/file.pem" />
-        <Button onClick={onBrowse} aria-label={`Browse for ${label}`}>
-          <FolderOpen size={14} />
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={onBrowse}
+          aria-label={`Browse for ${label}`}
+        >
+          <FolderOpen />
         </Button>
       </div>
     </Field>
@@ -624,18 +627,18 @@ function SshSection({
   return (
     <>
       <Field label="SSH tunnel">
-        <Select
+        <SimpleSelect
           value={ssh ? ssh.authMethod : 'none'}
-          onChange={(e) => {
-            const v = e.target.value
+          onValueChange={(v) => {
             if (v === 'none') patch({ ssh: null })
-            else setSsh({ authMethod: v as SshConfig['authMethod'] })
+            else setSsh({ authMethod: v })
           }}
-        >
-          <option value="none">None</option>
-          <option value="password">Password</option>
-          <option value="privateKey">Private key</option>
-        </Select>
+          options={[
+            { value: 'none', label: 'None' },
+            { value: 'password', label: 'Password' },
+            { value: 'privateKey', label: 'Private key' }
+          ]}
+        />
       </Field>
       {ssh && (
         <>

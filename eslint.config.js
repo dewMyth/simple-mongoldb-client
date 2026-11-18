@@ -26,6 +26,11 @@ export default tseslint.config(
     }
   },
   {
+    // shadcn/ui components are generated code that export variants next to components.
+    files: ['src/renderer/src/components/ui/**'],
+    rules: { 'react-refresh/only-export-components': 'off' }
+  },
+  {
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-eval': 'error',

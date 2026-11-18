@@ -1,6 +1,16 @@
 import { useState, type ReactNode } from 'react'
-import { Dialog } from './Dialog'
-import { Button, ErrorBox, Input, Spinner } from './ui'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from './ui/alert-dialog'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { ErrorBox, Spinner } from './form'
 
 /**
  * Confirmation for destructive actions. With `typeToConfirm`, the user must type that exact text.
@@ -37,57 +47,59 @@ export function ConfirmDialog({
     onOpenChange(v)
   }
 
+  const confirm = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await onConfirm()
+      close(false)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={close}
-      title={title}
-      width="sm"
-      footer={
-        <>
-          <Button onClick={() => close(false)}>Cancel</Button>
-          <Button
-            variant={danger ? 'danger' : 'primary'}
-            disabled={!ok || busy}
-            data-testid="confirm-button"
-            onClick={async () => {
-              setBusy(true)
-              setError(null)
-              try {
-                await onConfirm()
-                close(false)
-              } catch (e) {
-                setError((e as Error).message)
-              } finally {
-                setBusy(false)
-              }
-            }}
-          >
-            {busy ? <Spinner /> : null}
-            {confirmLabel}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3 text-[13px]">
-        <div>{body}</div>
+    <AlertDialog open={open} onOpenChange={close}>
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-sm">{title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-[13px]">{body}</AlertDialogDescription>
+        </AlertDialogHeader>
         {typeToConfirm ? (
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-muted">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted-foreground">
               Type{' '}
-              <code className="selectable rounded bg-panel-2 px-1 font-mono text-fg">{typeToConfirm}</code> to
-              confirm
+              <code className="selectable rounded bg-muted px-1 font-mono text-foreground">
+                {typeToConfirm}
+              </code>{' '}
+              to confirm
             </span>
             <Input
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && ok && void confirm()}
               data-testid="confirm-input"
             />
           </label>
         ) : null}
         {error ? <ErrorBox>{error}</ErrorBox> : null}
-      </div>
-    </Dialog>
+        <AlertDialogFooter>
+          <AlertDialogCancel size="default">Cancel</AlertDialogCancel>
+          {/* A plain Button (not AlertDialogAction) so the dialog stays open while working/on error. */}
+          <Button
+            variant={danger ? 'destructive' : 'default'}
+            disabled={!ok || busy}
+            onClick={confirm}
+            data-testid="confirm-button"
+          >
+            {busy ? <Spinner /> : null}
+            {confirmLabel}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

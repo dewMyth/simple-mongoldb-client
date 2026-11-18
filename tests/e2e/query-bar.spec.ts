@@ -75,7 +75,7 @@ test('runs Compass-style queries, shows counts, errors, options and history', as
   const { app, page } = await launchApp()
   try {
     await openOrders(page)
-    await expect(page.getByTestId('doc').first()).toContainText('ISODate(')
+    await expect(page.getByTestId('json-tree').first().locator('[data-type="date"]')).toContainText('2025-')
 
     await runFilter(page, '{ name: /^dew/i, createdAt: { $gte: ISODate("2026-01-01") } }')
     await expect(page.getByTestId('result-count')).toHaveText('50 documents')
@@ -83,7 +83,7 @@ test('runs Compass-style queries, shows counts, errors, options and history', as
     // Parse errors show inline and nothing runs.
     await runFilter(page, '{ name: foo() }')
     await expect(page.getByText(/Unsupported expression/).first()).toBeVisible()
-    await expect(page.getByTestId('filter-editor')).toHaveClass(/border-danger/)
+    await expect(page.getByTestId('filter-editor')).toHaveClass(/border-destructive/)
 
     // Options: projection + sort + limit.
     await runFilter(page, '{ i: { $lt: 10 } }')
@@ -93,8 +93,8 @@ test('runs Compass-style queries, shows counts, errors, options and history', as
     await focusEditor(page, 'sort-editor')
     await page.keyboard.insertText('{ i: -1 }')
     await page.keyboard.press('ControlOrMeta+Enter')
-    await expect(page.getByTestId('doc')).toHaveCount(3)
-    await expect(page.getByTestId('doc').first()).toContainText('i: 9')
+    await expect(page.getByTestId('json-tree')).toHaveCount(3)
+    await expect(page.getByTestId('json-tree').first().locator('[data-path="i"]')).toContainText('9')
 
     // ↑ in the filter recalls the previous query.
     await focusEditor(page, 'filter-editor')

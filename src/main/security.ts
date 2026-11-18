@@ -20,9 +20,13 @@ export function hardenWebContents(contents: WebContents, appOrigin: () => string
 }
 
 export function applyGlobalSecurity(): void {
-  // No camera, mic, notifications, geolocation, etc.
-  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
-  session.defaultSession.setPermissionCheckHandler(() => false)
+  // No camera, mic, notifications, geolocation, etc. Only writing text to the clipboard (the
+  // "copy value/document" buttons) is allowed; reading the clipboard stays blocked.
+  const allowed = new Set(['clipboard-sanitized-write'])
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) =>
+    callback(allowed.has(permission))
+  )
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
 
   app.on('web-contents-created', (_e, contents) => {
     contents.on('will-attach-webview', (event) => event.preventDefault())

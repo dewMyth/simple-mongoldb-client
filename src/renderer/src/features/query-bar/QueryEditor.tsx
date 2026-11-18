@@ -158,14 +158,14 @@ export function QueryEditor({
 
   return (
     <div
-      className={`relative min-w-0 flex-1 rounded-md border bg-bg px-1 py-[4px] ${
-        error && value.trim() ? 'border-danger/70' : focused ? 'border-accent' : 'border-border'
+      className={`relative min-w-0 flex-1 rounded-md border bg-background px-1 py-[4px] ${
+        error && value.trim() ? 'border-destructive/70' : focused ? 'border-primary' : 'border-border'
       }`}
       data-testid={testId}
       title={error && value.trim() ? error.message : undefined}
     >
       {!value && placeholder ? (
-        <div className="pointer-events-none absolute top-[5px] left-[10px] z-10 font-mono text-xs text-muted/70">
+        <div className="pointer-events-none absolute top-[5px] left-[10px] z-10 font-mono text-xs text-muted-foreground/70">
           {placeholder}
         </div>
       ) : null}

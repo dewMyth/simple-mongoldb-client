@@ -1,10 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import clsx from 'clsx'
-import * as DM from '@radix-ui/react-dropdown-menu'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, History, Play, RotateCcw, Square, Star } from 'lucide-react'
 import { emptyQueryText, isQueryEmpty, type QueryField, type QueryText } from '@shared/query'
-import { Button, Field, Input } from '../../components/ui'
+import { cn } from '@renderer/lib/utils'
+import { Field } from '../../components/form'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '../../components/ui/dropdown-menu'
 import { Dialog } from '../../components/Dialog'
 import { ipc } from '../../lib/ipc'
 import { QueryEditor } from './QueryEditor'
@@ -118,7 +127,7 @@ export function QueryBar({
   return (
     <div className="flex flex-col gap-2 border-b border-border bg-panel px-3 py-2.5" data-testid="query-bar">
       <div className="flex items-start gap-2">
-        <span className="mt-[7px] w-14 shrink-0 text-xs font-semibold text-muted">Filter</span>
+        <span className="mt-[7px] w-14 shrink-0 text-xs font-semibold text-muted-foreground">Filter</span>
         <QueryEditor
           field="filter"
           value={query.filter}
@@ -138,11 +147,11 @@ export function QueryBar({
             data-testid="toggle-options"
           >
             Options{' '}
-            <ChevronDown size={12} className={clsx('transition-transform', showOptions && 'rotate-180')} />
+            <ChevronDown size={12} className={cn('transition-transform', showOptions && 'rotate-180')} />
           </Button>
 
-          <DM.Root>
-            <DM.Trigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
                 variant="ghost"
@@ -151,80 +160,68 @@ export function QueryBar({
               >
                 <History size={14} />
               </Button>
-            </DM.Trigger>
-            <DM.Portal>
-              <DM.Content
-                align="end"
-                sideOffset={4}
-                className="z-50 max-h-[60vh] w-[480px] overflow-auto rounded-md border border-border bg-panel p-1 text-xs shadow-xl"
-              >
-                {favorites.length > 0 && (
-                  <>
-                    <DM.Label className="px-2 py-1 text-[10px] font-semibold tracking-wide text-muted uppercase">
-                      Saved
-                    </DM.Label>
-                    {favorites.map((f) => (
-                      <DM.Item
-                        key={f.id}
-                        onSelect={() => load(f.query)}
-                        className="group flex cursor-default items-center gap-2 rounded px-2 py-1.5 outline-none data-[highlighted]:bg-panel-2"
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-[60vh] w-[480px] overflow-auto text-xs">
+              {favorites.length > 0 && (
+                <>
+                  <DropdownMenuLabel className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                    Saved
+                  </DropdownMenuLabel>
+                  {favorites.map((f) => (
+                    <DropdownMenuItem key={f.id} onSelect={() => load(f.query)} className="group text-xs">
+                      <Star size={11} className="shrink-0 text-warn" />
+                      <span className="shrink-0 font-medium">{f.name}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">
+                        {summary(f.query)}
+                      </span>
+                      <button
+                        type="button"
+                        className="hidden text-muted-foreground group-hover:block hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void ipc('favorites:delete', f.id).then(() =>
+                            qc.invalidateQueries({ queryKey: ['favorites', ns] })
+                          )
+                        }}
                       >
-                        <Star size={11} className="shrink-0 text-warn" />
-                        <span className="shrink-0 font-medium">{f.name}</span>
-                        <span className="min-w-0 flex-1 truncate font-mono text-muted">
-                          {summary(f.query)}
-                        </span>
-                        <button
-                          type="button"
-                          className="hidden text-muted group-hover:block hover:text-danger"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void ipc('favorites:delete', f.id).then(() =>
-                              qc.invalidateQueries({ queryKey: ['favorites', ns] })
-                            )
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </DM.Item>
-                    ))}
-                    <DM.Separator className="my-1 h-px bg-border" />
-                  </>
-                )}
-                <DM.Label className="px-2 py-1 text-[10px] font-semibold tracking-wide text-muted uppercase">
-                  Recent
-                </DM.Label>
-                {history.length === 0 && (
-                  <div className="px-2 py-1.5 text-muted">No queries run on this collection yet.</div>
-                )}
-                {history.slice(0, 50).map((h) => (
-                  <DM.Item
-                    key={h.id}
-                    onSelect={() => load(h.query)}
-                    className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 outline-none data-[highlighted]:bg-panel-2"
+                        Remove
+                      </button>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuLabel className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                Recent
+              </DropdownMenuLabel>
+              {history.length === 0 && (
+                <div className="px-2 py-1.5 text-muted-foreground">
+                  No queries run on this collection yet.
+                </div>
+              )}
+              {history.slice(0, 50).map((h) => (
+                <DropdownMenuItem key={h.id} onSelect={() => load(h.query)} className="text-xs">
+                  <span className="min-w-0 flex-1 truncate font-mono">{summary(h.query)}</span>
+                  <span className="shrink-0 text-muted-foreground">{new Date(h.ranAt).toLocaleString()}</span>
+                </DropdownMenuItem>
+              ))}
+              {history.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      void ipc('history:clear', { connectionId, ns }).then(() =>
+                        qc.invalidateQueries({ queryKey: historyKey })
+                      )
+                    }
+                    className="text-xs text-muted-foreground"
                   >
-                    <span className="min-w-0 flex-1 truncate font-mono">{summary(h.query)}</span>
-                    <span className="shrink-0 text-muted">{new Date(h.ranAt).toLocaleString()}</span>
-                  </DM.Item>
-                ))}
-                {history.length > 0 && (
-                  <>
-                    <DM.Separator className="my-1 h-px bg-border" />
-                    <DM.Item
-                      onSelect={() =>
-                        void ipc('history:clear', { connectionId, ns }).then(() =>
-                          qc.invalidateQueries({ queryKey: historyKey })
-                        )
-                      }
-                      className="cursor-default rounded px-2 py-1.5 text-muted outline-none data-[highlighted]:bg-panel-2"
-                    >
-                      Clear history
-                    </DM.Item>
-                  </>
-                )}
-              </DM.Content>
-            </DM.Portal>
-          </DM.Root>
+                    Clear history
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             size="sm"
@@ -245,11 +242,11 @@ export function QueryBar({
             <RotateCcw size={13} />
           </Button>
           {running ? (
-            <Button size="sm" variant="secondary" onClick={onCancel} data-testid="cancel-query">
+            <Button size="sm" variant="outline" onClick={onCancel} data-testid="cancel-query">
               <Square size={11} /> Cancel
             </Button>
           ) : (
-            <Button size="sm" variant="primary" onClick={run} data-testid="run-query">
+            <Button size="sm" onClick={run} data-testid="run-query">
               <Play size={11} /> Find
             </Button>
           )}
@@ -283,9 +280,11 @@ export function QueryBar({
             <div className="grid grid-cols-3 gap-3">
               {(['skip', 'limit', 'maxTimeMS'] as const).map((f) => (
                 <label key={f} className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-xs font-semibold text-muted">{fieldLabel[f]}</span>
+                  <span className="w-20 shrink-0 text-xs font-semibold text-muted-foreground">
+                    {fieldLabel[f]}
+                  </span>
                   <Input
-                    className={clsx('h-7 font-mono text-xs', errorFor(f) && 'border-danger')}
+                    className={cn('h-7 font-mono text-xs', errorFor(f) && 'border-destructive')}
                     inputMode="numeric"
                     value={query[f]}
                     placeholder={f === 'maxTimeMS' ? '60000' : '0'}
@@ -312,7 +311,7 @@ export function QueryBar({
 function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
-      <span className="mt-[7px] text-xs font-semibold text-muted">{label}</span>
+      <span className="mt-[7px] text-xs font-semibold text-muted-foreground">{label}</span>
       <div className="flex min-w-0">{children}</div>
     </>
   )
@@ -334,8 +333,10 @@ function SaveQueryDialog({ ns, query, onClose }: { ns: string; query: QueryText;
       width="sm"
       footer={
         <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={save} data-testid="save-query-submit">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={save} data-testid="save-query-submit">
             Save
           </Button>
         </>

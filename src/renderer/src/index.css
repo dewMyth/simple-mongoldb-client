@@ -1,73 +1,169 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:is(.dark *));
 
-@theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-
-  --color-bg: var(--bg);
-  --color-panel: var(--panel);
-  --color-panel-2: var(--panel-2);
-  --color-border: var(--border);
-  --color-fg: var(--fg);
-  --color-muted: var(--muted);
-  --color-accent: var(--accent);
-  --color-accent-fg: var(--accent-fg);
-  --color-danger: var(--danger);
-  --color-warn: var(--warn);
-  --color-ok: var(--ok);
-}
-
+/*
+ * shadcn/ui theme tokens (https://ui.shadcn.com/docs/theming) plus app-specific extras:
+ *  - panel / panel-2: sidebar, toolbars and raised surfaces
+ *  - warn / ok: status colours
+ *  - json-*: one colour per BSON type in the JSON tree view
+ */
 :root {
-  --bg: #ffffff;
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: #1a1f26;
+  --card: #ffffff;
+  --card-foreground: #1a1f26;
+  --popover: #ffffff;
+  --popover-foreground: #1a1f26;
+  --primary: #0b7a52;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f5;
+  --secondary-foreground: #1a1f26;
+  --muted: #f1f3f5;
+  --muted-foreground: #667085;
+  --accent: #eceef2;
+  --accent-foreground: #1a1f26;
+  --destructive: #c62828;
+  --border: #dde1e6;
+  --input: #d3d8de;
+  --ring: #0b7a52;
+
   --panel: #f6f7f9;
   --panel-2: #eceef2;
-  --border: #dde1e6;
-  --fg: #1a1f26;
-  --muted: #667085;
-  --accent: #0b7a52;
-  --accent-fg: #ffffff;
-  --danger: #c62828;
   --warn: #b26a00;
   --ok: #1b873f;
+
+  --json-key: #1a1f26;
+  --json-string: #0a7d3f;
+  --json-number: #1c5bd6;
+  --json-int64: #4338ca;
+  --json-double: #0891b2;
+  --json-decimal: #0f766e;
+  --json-boolean: #8b3fd1;
+  --json-null: #8b96a5;
+  --json-date: #b4561b;
+  --json-objectid: #c2185b;
+  --json-binary: #6d4c41;
+  --json-regex: #b26a00;
+  --json-special: #5b21b6;
+  --json-punct: #8b96a5;
   color-scheme: light;
 }
 
 .dark {
-  --bg: #0b0f14;
+  --background: #0b0f14;
+  --foreground: #e3e8ef;
+  --card: #12171e;
+  --card-foreground: #e3e8ef;
+  --popover: #12171e;
+  --popover-foreground: #e3e8ef;
+  --primary: #34c38f;
+  --primary-foreground: #06120d;
+  --secondary: #1a2029;
+  --secondary-foreground: #e3e8ef;
+  --muted: #1a2029;
+  --muted-foreground: #8b96a5;
+  --accent: #1f2631;
+  --accent-foreground: #e3e8ef;
+  --destructive: #ef5350;
+  --border: #262e39;
+  --input: #2f3845;
+  --ring: #34c38f;
+
   --panel: #12171e;
   --panel-2: #1a2029;
-  --border: #262e39;
-  --fg: #e3e8ef;
-  --muted: #8b96a5;
-  --accent: #34c38f;
-  --accent-fg: #06120d;
-  --danger: #ef5350;
   --warn: #f0a83a;
   --ok: #4cc276;
+
+  --json-key: #d6dde6;
+  --json-string: #5fd3a3;
+  --json-number: #79b8ff;
+  --json-int64: #a5b4fc;
+  --json-double: #67e8f9;
+  --json-decimal: #5eead4;
+  --json-boolean: #c792ea;
+  --json-null: #6b7685;
+  --json-date: #f6a96b;
+  --json-objectid: #f48fb1;
+  --json-binary: #bcaaa4;
+  --json-regex: #f0a83a;
+  --json-special: #b39dfa;
+  --json-punct: #6b7685;
   color-scheme: dark;
 }
 
-html,
-body,
-#root {
-  height: 100%;
+@theme inline {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+
+  --color-json-key: var(--json-key);
+  --color-json-string: var(--json-string);
+  --color-json-number: var(--json-number);
+  --color-json-int64: var(--json-int64);
+  --color-json-double: var(--json-double);
+  --color-json-decimal: var(--json-decimal);
+  --color-json-boolean: var(--json-boolean);
+  --color-json-null: var(--json-null);
+  --color-json-date: var(--json-date);
+  --color-json-objectid: var(--json-objectid);
+  --color-json-binary: var(--json-binary);
+  --color-json-regex: var(--json-regex);
+  --color-json-special: var(--json-special);
+  --color-json-punct: var(--json-punct);
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  -webkit-font-smoothing: antialiased;
-  user-select: none;
-}
-
-input,
-textarea,
-[contenteditable],
-.selectable {
-  user-select: text;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable],
+  .selectable {
+    user-select: text;
+  }
 }

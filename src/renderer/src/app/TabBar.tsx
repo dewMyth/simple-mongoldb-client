@@ -1,4 +1,4 @@
-import clsx from 'clsx'
+import { cn } from '@renderer/lib/utils'
 import { Info, Table2, X } from 'lucide-react'
 import { useTabsStore } from '../stores/tabs'
 import { useSavedConnections } from '../features/connections/queries'
@@ -17,7 +17,9 @@ export function TabBar() {
       data-testid="tab-bar"
       role="tablist"
     >
-      {tabs.length === 0 && <div className="flex h-8 items-center px-3 text-xs text-muted">Welcome</div>}
+      {tabs.length === 0 && (
+        <div className="flex h-8 items-center px-3 text-xs text-muted-foreground">Welcome</div>
+      )}
       {tabs.map((t) => {
         const conn = saved.find((c) => c.id === t.connectionId)
         const color = conn ? colorHex[conn.color] : null
@@ -36,9 +38,11 @@ export function TabBar() {
               } else activate(t.id)
             }}
             title={`${conn?.name ?? ''} · ${t.ns ?? t.title}`}
-            className={clsx(
+            className={cn(
               'group relative flex h-8 max-w-56 min-w-28 cursor-default items-center gap-1.5 rounded-t-md border border-b-0 px-2.5 text-xs',
-              active ? 'border-border bg-bg text-fg' : 'border-transparent text-muted hover:bg-panel-2'
+              active
+                ? 'border-border bg-background text-foreground'
+                : 'border-transparent text-muted-foreground hover:bg-panel-2'
             )}
           >
             {color && (
@@ -51,7 +55,7 @@ export function TabBar() {
               aria-label="Close tab"
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => close(t.id)}
-              className={clsx(
+              className={cn(
                 'rounded p-0.5 hover:bg-panel-2',
                 active ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'
               )}
