@@ -169,9 +169,9 @@ Compass's query bar accepts **shell syntax**, not strict JSON. These must all wo
 - Keyboard: `Cmd/Ctrl+Enter` runs, `Esc` cancels (kills the cursor), `Cmd/Ctrl+Shift+F` formats.
 
 **Done when**
-- [ ] The full compatibility corpus passes in CI
-- [ ] A side-by-side check against real Compass on the same dataset gives identical result counts for 20 sample queries (manual, documented in `docs/compat-check.md`)
-- [ ] Cancelling a long query frees the cursor on the server (verify with `currentOp`)
+- [x] The full compatibility corpus passes in CI
+- [ ] A side-by-side check against real Compass on the same dataset gives identical result counts for 20 sample queries (manual, documented in `docs/compat-check.md`) _(script + table ready; Compass column needs a manual run)_
+- [x] Cancelling a long query frees the cursor on the server (verify with `currentOp`)
 
 ---
 

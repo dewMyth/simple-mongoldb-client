@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog } from 'electron'
 import { handle } from './router'
-import { connections, databases, storage } from '../services'
+import { connections, cursors, databases, storage } from '../services'
 
 export function registerConnectionHandlers(): void {
   connections.onChange(() => {
@@ -18,6 +18,7 @@ export function registerConnectionHandlers(): void {
   handle('connections:list', () => storage.list())
   handle('connections:save', (draft) => storage.save(draft))
   handle('connections:delete', async (id) => {
+    await cursors.cancelForConnection(id)
     await connections.disconnect(id)
     storage.delete(id)
   })
@@ -27,7 +28,10 @@ export function registerConnectionHandlers(): void {
     storage.touch(id)
     return info
   })
-  handle('connections:disconnect', (id) => connections.disconnect(id))
+  handle('connections:disconnect', async (id) => {
+    await cursors.cancelForConnection(id)
+    await connections.disconnect(id)
+  })
   handle('connections:active', () => connections.active())
 
   handle('db:listDatabases', (id) => databases.listDatabases(id))

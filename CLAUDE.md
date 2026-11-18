@@ -23,3 +23,4 @@
   `analyzeDocuments`; the unscoped `mongodb-schema` is deprecated), @mongosh/node-runtime-worker-thread 5
   (`WorkerRuntime` with `evaluate`, `getCompletions`, `interrupt`, `terminate`). TypeScript is pinned to 6.0
   because typescript-eslint doesn't support 7 yet.
+- Every driver read that returns user documents must spread `PRESERVE_TYPES` (src/main/services/bson-options.ts); otherwise the driver turns Int64/Double/Int32 into JS numbers and types are lost.

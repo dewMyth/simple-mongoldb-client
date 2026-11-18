@@ -3,6 +3,9 @@ import { safeStorage } from 'electron'
 import Store from 'electron-store'
 import { ConnectionManager } from './connection-manager'
 import { DatabaseService } from './database-service'
+import { CursorRegistry } from './cursor-registry'
+import { HistoryService, type HistoryData } from './history-service'
+import { QueryService } from './query-service'
 import { StorageService, type SecretCipher, type StoredConnection } from './storage-service'
 
 const safeStorageCipher: SecretCipher = {
@@ -25,3 +28,15 @@ export const storage = new StorageService(
 )
 export const connections = new ConnectionManager()
 export const databases = new DatabaseService(connections)
+export const cursors = new CursorRegistry()
+export const queries = new QueryService(connections, cursors)
+
+// Namespaces contain dots, so everything lives under one key (no dot-path access).
+const historyStore = new Store<{ data: HistoryData }>({
+  name: 'query-history',
+  defaults: { data: { history: {}, favorites: [] } }
+})
+export const history = new HistoryService({
+  get: () => historyStore.get('data'),
+  set: (d) => historyStore.set('data', d)
+})

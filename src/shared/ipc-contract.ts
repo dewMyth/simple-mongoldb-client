@@ -16,6 +16,16 @@ import {
   type SavedConnection,
   type ServerInfo
 } from './connection'
+import {
+  queryFields,
+  queryTextSchema,
+  type CountResult,
+  type FavoriteQuery,
+  type FindPage,
+  type FindResult,
+  type HistoryEntry,
+  type QueryFieldError
+} from './query'
 
 /** Declares a channel: zod input schema + output type carried only at the type level. */
 function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
@@ -66,6 +76,18 @@ export const openFileSchema = z.object({
   filters: z.array(z.object({ name: z.string(), extensions: z.array(z.string()) })).optional()
 })
 
+const nsSchema = z.string().regex(/^[^.]+\..+$/, 'Namespace must be "db.collection"')
+const nsTarget = z.object({ connectionId: connId, ns: nsSchema })
+const objectQueryField = z.enum(['filter', 'project', 'sort', 'collation'])
+
+export const findSchema = z.object({
+  connectionId: connId,
+  ns: nsSchema,
+  tabId: z.string().nullable().default(null),
+  query: queryTextSchema,
+  batchSize: z.number().int().min(1).max(10_000).optional()
+})
+
 // ---------------------------------------------------------------- the contract
 
 export const ipcContract = {
@@ -98,7 +120,42 @@ export const ipcContract = {
   >(z.object({ connectionId: connId, db: dbName, name: collName })),
   'db:dropDatabase': channel<z.ZodObject<{ connectionId: typeof connId; db: typeof dbName }>, void>(
     z.object({ connectionId: connId, db: dbName })
-  )
+  ),
+
+  'query:validate': channel<
+    z.ZodObject<{ field: z.ZodEnum<{ [K in (typeof queryFields)[number]]: K }>; text: z.ZodString }>,
+    QueryFieldError | null
+  >(z.object({ field: z.enum(queryFields), text: z.string().max(1_000_000) })),
+  'query:format': channel<z.ZodObject<{ field: typeof objectQueryField; text: z.ZodString }>, string | null>(
+    z.object({ field: objectQueryField, text: z.string().max(1_000_000) })
+  ),
+  'query:find': channel<typeof findSchema, FindResult>(findSchema),
+  'query:getMore': channel<z.ZodObject<{ cursorId: z.ZodString; count: z.ZodNumber }>, FindPage>(
+    z.object({ cursorId: z.string().min(1), count: z.number().int().min(1).max(10_000) })
+  ),
+  'query:count': channel<typeof findSchema, CountResult>(findSchema),
+  /** Cancels a cursor/operation by id. Returns false if it had already finished. */
+  'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
+  /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
+  'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),
+
+  'history:list': channel<typeof nsTarget, HistoryEntry[]>(nsTarget),
+  'history:add': channel<
+    z.ZodObject<{ connectionId: typeof connId; ns: typeof nsSchema; query: typeof queryTextSchema }>,
+    HistoryEntry[]
+  >(nsTarget.extend({ query: queryTextSchema })),
+  'history:clear': channel<typeof nsTarget, void>(nsTarget),
+  'favorites:list': channel<z.ZodOptional<typeof nsSchema>, FavoriteQuery[]>(nsSchema.optional()),
+  'favorites:save': channel<
+    z.ZodObject<{
+      id: z.ZodOptional<z.ZodString>
+      name: z.ZodString
+      ns: typeof nsSchema
+      query: typeof queryTextSchema
+    }>,
+    FavoriteQuery
+  >(z.object({ id: z.string().optional(), name: z.string().max(200), ns: nsSchema, query: queryTextSchema })),
+  'favorites:delete': channel<z.ZodString, void>(z.string().min(1))
 } as const
 
 export type IpcContract = typeof ipcContract

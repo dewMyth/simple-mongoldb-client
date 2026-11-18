@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { emptyQueryText, type QueryText } from '@shared/query'
+import { ipc } from '../lib/ipc'
 
 export type TabType = 'documents' | 'connection-info'
 
@@ -9,15 +11,25 @@ export interface Tab {
   /** "db.collection" for collection tabs; db name only for connection-info. */
   ns: string | null
   title: string
+  /** Query-bar text for documents tabs. */
+  query: QueryText
+}
+
+export type NewTab = Omit<Tab, 'id' | 'query'> & { query?: QueryText }
+
+/** Kill server-side cursors/ops owned by a tab. Fire-and-forget: closing must never block. */
+function releaseTab(id: string) {
+  void ipc('ops:cancelForTab', id).catch(() => {})
 }
 
 interface TabsState {
   tabs: Tab[]
   activeId: string | null
-  open: (tab: Omit<Tab, 'id'>, opts?: { newTab?: boolean }) => string
+  open: (tab: NewTab, opts?: { newTab?: boolean }) => string
   close: (id: string) => void
   closeForConnection: (connectionId: string) => void
   activate: (id: string) => void
+  setQuery: (id: string, query: QueryText) => void
 }
 
 let counter = 0
@@ -41,7 +53,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const id = newId()
     const idx = tabs.findIndex((t) => t.id === activeId)
     const next = [...tabs]
-    next.splice(idx >= 0 ? idx + 1 : next.length, 0, { ...tab, id })
+    next.splice(idx >= 0 ? idx + 1 : next.length, 0, { ...tab, query: tab.query ?? emptyQueryText, id })
     set({ tabs: next, activeId: id })
     return id
   },
@@ -49,16 +61,21 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const { tabs, activeId } = get()
     const idx = tabs.findIndex((t) => t.id === id)
     if (idx < 0) return
+    releaseTab(id)
     const next = tabs.filter((t) => t.id !== id)
     const newActive = activeId === id ? (next[Math.min(idx, next.length - 1)]?.id ?? null) : activeId
     set({ tabs: next, activeId: newActive })
   },
   closeForConnection(connectionId) {
     const { tabs, activeId } = get()
+    for (const t of tabs) if (t.connectionId === connectionId) releaseTab(t.id)
     const next = tabs.filter((t) => t.connectionId !== connectionId)
     set({ tabs: next, activeId: next.some((t) => t.id === activeId) ? activeId : (next.at(-1)?.id ?? null) })
   },
   activate(id) {
     set({ activeId: id })
+  },
+  setQuery(id, query) {
+    set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, query } : t)) })
   }
 }))

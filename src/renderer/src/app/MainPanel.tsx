@@ -1,6 +1,7 @@
 import { Database } from 'lucide-react'
 import { useTabsStore } from '../stores/tabs'
 import { ConnectionInfoPanel } from '../features/connections/ConnectionInfoPanel'
+import { DocumentsTab } from '../features/documents/DocumentsTab'
 
 export function MainPanel() {
   const tab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeId))
@@ -17,12 +18,7 @@ export function MainPanel() {
       ) : tab.type === 'connection-info' ? (
         <ConnectionInfoPanel connectionId={tab.connectionId} />
       ) : (
-        <div
-          className="flex flex-1 items-center justify-center text-xs text-muted"
-          data-testid="documents-placeholder"
-        >
-          {tab.ns}
-        </div>
+        <DocumentsTab key={tab.id} tab={tab} />
       )}
     </main>
   )

@@ -18,6 +18,8 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // We don't use the React Compiler; TanStack Virtual/Table are fine without memoization.
+      'react-hooks/incompatible-library': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // Hard rule 1: the renderer never touches the driver.
       'no-restricted-imports': ['error', { paths: ['mongodb', 'electron', 'ssh2'], patterns: ['**/main/**'] }]
