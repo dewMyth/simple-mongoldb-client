@@ -17,6 +17,8 @@
 - The preload is sandboxed and built as CommonJS (`out/preload/index.cjs`); it may only import `electron`
   and `src/shared`.
 - `ELECTRON_RUN_AS_NODE` leaks in from VS Code terminals. electron.vite.config.ts and tests/e2e/app.ts strip it.
+- `npm run dev` uses `--watch` so main/preload changes rebuild and restart Electron. Without it only the
+  renderer hot-reloads, and a stale main process silently ignores new IPC fields.
 - E2E tests run against the built app: `npm run test:e2e` (builds first).
 - Library versions in use: mongodb 7, bson 7, mongodb-query-parser 5 (`parseFilter`, `parseProject`,
   `parseSort`, `parseCollation`, `isHintValid`…), @mongodb-js/mongodb-schema 12 (`parseSchema`,
