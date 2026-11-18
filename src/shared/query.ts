@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { CanonicalEJSON } from './ejson'
+import type { BsonBytes } from './bson-wire'
 
 export const queryFields = [
   'filter',
@@ -71,7 +71,8 @@ export interface FavoriteQuery {
 }
 
 export interface FindPage {
-  docs: CanonicalEJSON[]
+  /** One BSON-encoded document each (see src/shared/bson-wire.ts). */
+  docs: BsonBytes[]
   exhausted: boolean
 }
 

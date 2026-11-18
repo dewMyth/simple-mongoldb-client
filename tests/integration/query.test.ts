@@ -5,8 +5,8 @@ import { ConnectionManager } from '../../src/main/services/connection-manager'
 import { CursorRegistry } from '../../src/main/services/cursor-registry'
 import { QueryService } from '../../src/main/services/query-service'
 import { SchemaService } from '../../src/main/services/schema-service'
-import { BSON, EJSON } from 'bson'
-import { fromCanonical } from '../../src/shared/ejson'
+import { BSON } from 'bson'
+import { fromBsonBytes } from '../../src/shared/bson-wire'
 import { allTypesDoc, ALL_TYPES_ID } from '../fixtures/all-types'
 import { emptyQueryText, type QueryText } from '../../src/shared/query'
 import { makeStorage } from './helpers'
@@ -17,8 +17,9 @@ let connId: string
 const manager = new ConnectionManager()
 const registry = new CursorRegistry()
 const queries = new QueryService(manager, registry)
-/** Canonical EJSON → plain JS numbers, for readable assertions. */
-const plain = <T>(d: unknown) => EJSON.deserialize(d as never, { relaxed: true }) as T
+
+/** BSON bytes → plain JS values (numbers promoted), for readable assertions. */
+const plain = <T>(d: Uint8Array | undefined) => BSON.deserialize(d!) as T
 const q = (p: Partial<QueryText>): QueryText => ({ ...emptyQueryText, ...p })
 
 /** Server-side view of our operations: running ops plus idle cursors tagged with our comment prefix. */
@@ -161,7 +162,10 @@ describe('query service', () => {
     })
     expect(res.ok).toBe(true)
     if (!res.ok) return
-    const back = fromCanonical(res.docs[0])
+    // The bytes that cross IPC are exactly what was stored…
+    expect(Buffer.from(res.docs[0]!).equals(Buffer.from(BSON.serialize(doc)))).toBe(true)
+    // …and decoding keeps every type.
+    const back = fromBsonBytes(res.docs[0]!)
     expect(Buffer.from(BSON.serialize(back)).equals(Buffer.from(BSON.serialize(doc)))).toBe(true)
   })
 

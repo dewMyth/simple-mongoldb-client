@@ -7,7 +7,7 @@
  */
 import { create } from 'zustand'
 import type { Document } from 'bson'
-import { fromCanonicalArray } from '@shared/ejson'
+import { fromBsonArray } from '@shared/bson-wire'
 import { PAGE_SIZE, type CountResult, type QueryFieldError, type QueryText } from '@shared/query'
 import { ipc } from '../../lib/ipc'
 import { queryClient } from '../../lib/query-client'
@@ -29,6 +29,9 @@ export interface TabResults {
   countError: string | null
   /** Milliseconds from the request to the page arriving. */
   pageMs: number | null
+  /** performance.now() when the page request started / its data arrived (render timing). */
+  requestedAt: number | null
+  receivedAt: number | null
   /** The query as it was when Find was pressed; paging always uses this one. */
   ranQuery: QueryText | null
   target: { connectionId: string; ns: string } | null
@@ -45,6 +48,8 @@ const initial: TabResults = {
   count: null,
   countError: null,
   pageMs: null,
+  requestedAt: null,
+  receivedAt: null,
   ranQuery: null,
   target: null
 }
@@ -99,8 +104,10 @@ export const useResultsStore = create<ResultsState>((set, get) => {
         {
           status: 'done',
           page,
-          docs: fromCanonicalArray(res.docs),
-          pageMs: Math.round(performance.now() - t0)
+          docs: fromBsonArray(res.docs),
+          pageMs: Math.round(performance.now() - t0),
+          requestedAt: t0,
+          receivedAt: performance.now()
         },
         forRequest(requestId)
       )

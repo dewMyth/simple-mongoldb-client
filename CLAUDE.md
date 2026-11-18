@@ -2,7 +2,10 @@
 
 - Electron + React 19 + TS strict. Run `npm run typecheck && npm test` before saying a task is done.
 - Renderer never imports `mongodb`, never sees credentials. All DB access lives in src/main/services.
-- All documents cross IPC as canonical EJSON. Use helpers in src/shared/ejson.ts. Never JSON.stringify BSON.
+- All documents cross IPC as raw BSON bytes, one Uint8Array per document (src/shared/bson-wire.ts: main sends
+  driver `raw: true` buffers via `ownBytes`; the renderer decodes with `fromBsonBytes`). Never JSON.stringify BSON.
+  EJSON (src/shared/ejson.ts) is only for text: clipboard, export, display. (Changed from canonical EJSON in
+  Phase 5: 15x faster for object-heavy documents; a 10 MB document froze the UI for 1.2 s with EJSON.)
 - Never eval user input. Parse with mongodb-query-parser (main) or run in the mongosh worker.
 - Every write path must check permissions.can(connId, ns, action) and the read-only override.
 - Every new IPC channel: type in src/shared/ipc-contract.ts + zod schema in main + preload binding + test.

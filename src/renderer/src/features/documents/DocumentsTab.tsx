@@ -23,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
 import { useResultsStore, type TabResults } from './results-store'
 import { JsonTree, type ExpandMode } from './JsonTree'
 import { JsonView } from './JsonView'
+import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { TableView } from './TableView'
 import { PermissionsPanel } from '../permissions/PermissionsPanel'
 
@@ -314,6 +315,34 @@ function ResultsList({
     parentRef.current?.scrollTo({ top: 0 })
   }, [pageDocs])
 
+  // Performance instrumentation (read by scripts/bench-ui.ts): once the page has been painted,
+  // record query time (request → data) and render time (data → pixels) as a measure.
+  const receivedAt = r?.receivedAt
+  const requestedAt = r?.requestedAt
+  useEffect(() => {
+    if (!pageDocs?.length || receivedAt == null || requestedAt == null) return
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const paintedAt = performance.now()
+        performance.measure('ms:page', {
+          start: requestedAt,
+          end: paintedAt,
+          detail: {
+            viewMode,
+            docs: pageDocs.length,
+            queryMs: receivedAt - requestedAt,
+            renderMs: paintedAt - receivedAt
+          }
+        })
+      })
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [pageDocs, receivedAt, requestedAt, viewMode])
+
   if (!r) return null
   if (r.status === 'error' && r.error) {
     return (
@@ -334,13 +363,15 @@ function ResultsList({
   if (viewMode === 'table' && r.target) {
     return (
       <div className={cn('flex min-h-0 flex-1 flex-col transition-opacity', loading && 'opacity-60')}>
-        <TableView
-          docs={docs}
-          offset={r.page * PAGE_SIZE}
-          connectionId={r.target.connectionId}
-          ns={r.target.ns}
-          tabId={tabId}
-        />
+        <ErrorBoundary label="the table">
+          <TableView
+            docs={docs}
+            offset={r.page * PAGE_SIZE}
+            connectionId={r.target.connectionId}
+            ns={r.target.ns}
+            tabId={tabId}
+          />
+        </ErrorBoundary>
       </div>
     )
   }
@@ -360,11 +391,13 @@ function ResultsList({
             className="absolute inset-x-0 px-3 pt-2"
             style={{ transform: `translateY(${item.start}px)` }}
           >
-            {viewMode === 'tree' ? (
-              <JsonTree doc={docs[item.index]!} epoch={expand.epoch} mode={expand.mode} />
-            ) : (
-              <JsonView doc={docs[item.index]!} />
-            )}
+            <ErrorBoundary label="this document">
+              {viewMode === 'tree' ? (
+                <JsonTree doc={docs[item.index]!} epoch={expand.epoch} mode={expand.mode} />
+              ) : (
+                <JsonView doc={docs[item.index]!} />
+              )}
+            </ErrorBoundary>
           </div>
         ))}
       </div>

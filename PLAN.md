@@ -18,7 +18,7 @@ This plan is meant to be run phase by phase in Claude Code. Each phase lists its
 | Lists/grids | TanStack Virtual (list/JSON views), TanStack Table + virtualization (table view) |
 | DB driver | Official `mongodb` Node driver (v6+), **main process only** |
 | Query parsing | `mongodb-query-parser` (the parser Compass uses), so Compass-style query strings behave the same |
-| BSON over IPC | `bson` EJSON **canonical** mode, so every type survives the round trip |
+| BSON over IPC | Raw **BSON bytes** per document (was canonical EJSON; changed in Phase 5, see hard rule 3) |
 | Schema analysis | `mongodb-schema` |
 | Shell | `@mongosh/node-runtime-worker-thread` (what Compass uses), rendered with xterm.js |
 | Permissions | Auto-detect privileges via `connectionStatus`, plus a per-connection read-only override |
@@ -43,7 +43,7 @@ This plan is meant to be run phase by phase in Claude Code. Each phase lists its
 ┌───────────────────────────────────────▼─────────────────────────────────────────────┐
 │ Main process                                                                        │
 │  ConnectionManager (MongoClient pool per connection id)                             │
-│  QueryService (parse → execute → stream cursor batches as canonical EJSON)          │
+│  QueryService (parse → execute → stream cursor batches as raw BSON bytes)           │
 │  PermissionService (connectionStatus → privilege matrix per namespace)              │
 │  CursorRegistry (open cursors, getMore, kill on tab close / timeout)                │
 │  SchemaService ▸ IndexService ▸ ImportExportService ▸ StorageService (safeStorage)  │
@@ -54,7 +54,8 @@ This plan is meant to be run phase by phase in Claude Code. Each phase lists its
 **Hard rules (add these to `CLAUDE.md`):**
 1. The renderer never imports `mongodb` or touches credentials. All DB work happens in main.
 2. `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`. Exactly one preload exposes a typed API.
-3. Every IPC payload containing documents is **canonical EJSON** (`EJSON.serialize(doc, { relaxed: false })`). Never send plain `JSON.stringify`'d BSON.
+3. Every IPC payload containing documents is **raw BSON bytes**, one `Uint8Array` per document (`src/shared/bson-wire.ts`). Never send plain `JSON.stringify`'d BSON.
+   _Decision (Nov 2026, Phase 5): originally canonical EJSON. Measured on a 10 MB document, EJSON cost ~920 ms of serialize + IPC copy + decode (a 1.2 s UI freeze) versus ~90 ms for BSON, which is also lossless by construction. EJSON stays for clipboard and export text._
 4. User query text is **parsed, never `eval`'d**. Only `mongodb-query-parser` / the mongosh worker interpret user input.
 5. All long operations accept a `maxTimeMS` and an abort signal. Closing a tab kills its cursors.
 
@@ -201,6 +202,7 @@ Compass's query bar accepts **shell syntax**, not strict JSON. These must all wo
 **Tasks**
 - **Three views**: List (expandable doc cards like Compass), JSON (one Monaco-styled block per doc), and Table (columns from sampled schema, nested fields as expandable cells).
 - **Streaming**: main opens a cursor with `batchSize` ≈ 100 and pushes batches over a `MessagePort` as the user scrolls (`getMore` on demand). The renderer holds a windowed cache; docs far outside the viewport are released.
+  - _Superseded by 25-per-page paging: each page is one batch, so there's no stream or windowed cache to manage._
 - **Virtualization** everywhere (TanStack Virtual), with variable row heights measured lazily.
 - **Lazy document tree**: big nested docs and arrays render the first N children and a "show 50 more" control. Long strings and binary are truncated with an expand action.
 - **Pagination modes**: infinite scroll (default) and classic pages (skip/limit) for people who want it.
@@ -214,9 +216,9 @@ Compass's query bar accepts **shell syntax**, not strict JSON. These must all wo
   - Opening a 10 MB document doesn't freeze the UI (parse in a worker if needed)
 
 **Done when**
-- [ ] A `scripts/seed-bench.ts` script creates the benchmark dataset
-- [ ] All four performance budgets met and recorded in `docs/perf.md`
-- [ ] Every BSON type in the fixture "all types" document renders with the correct badge
+- [x] A `scripts/seed-bench.ts` script creates the benchmark dataset
+- [x] All four performance budgets met and recorded in `docs/perf.md`
+- [x] Every BSON type in the fixture "all types" document renders with the correct badge
 
 ---
 
@@ -385,7 +387,7 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 
 - Electron + React 19 + TS strict. Run `npm run typecheck && npm test` before saying a task is done.
 - Renderer never imports `mongodb`, never sees credentials. All DB access lives in src/main/services.
-- All documents cross IPC as canonical EJSON. Use helpers in src/shared/ejson.ts. Never JSON.stringify BSON.
+- All documents cross IPC as raw BSON bytes (src/shared/bson-wire.ts). Never JSON.stringify BSON.
 - Never eval user input. Parse with mongodb-query-parser (main) or run in the mongosh worker.
 - Every write path must check permissions.can(connId, ns, action) and the read-only override.
 - Every new IPC channel: type in src/shared/ipc-contract.ts + zod schema in main + preload binding + test.

@@ -1,6 +1,7 @@
 /**
- * Every document that crosses IPC is canonical EJSON (hard rule 3). Use these helpers instead of
- * JSON.stringify so Int64, Decimal128, Binary subtypes, dates before 1970, etc. survive intact.
+ * EJSON helpers for *text*: clipboard, export, display. (Documents cross IPC as raw BSON bytes;
+ * see bson-wire.ts.) Use these instead of JSON.stringify so Int64, Decimal128, Binary subtypes,
+ * dates before 1970, etc. survive intact.
  */
 import { EJSON, type Document } from 'bson'
 

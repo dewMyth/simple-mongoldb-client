@@ -2,7 +2,7 @@
  * Runs find() and counts for the query bar. Results leave this module as canonical EJSON.
  */
 import type { Document, FindCursor, FindOptions, Sort } from 'mongodb'
-import { toCanonical, type CanonicalEJSON } from '@shared/ejson'
+import { ownBytes, type BsonBytes } from '@shared/bson-wire'
 import {
   pageWindow,
   type CountResult,
@@ -14,7 +14,6 @@ import {
 import type { ConnectionManager } from './connection-manager'
 import { CancelledError, type CursorRegistry } from './cursor-registry'
 import { ReadableError } from './errors'
-import { PRESERVE_TYPES } from './bson-options'
 import { parseQuery, type ParsedQuery } from './query-parser'
 
 export const DEFAULT_BATCH_SIZE = 100
@@ -28,7 +27,9 @@ export function splitNamespace(ns: string): { db: string; coll: string } {
 }
 
 function findOptions(q: ParsedQuery, batchSize: number): FindOptions {
-  const o: FindOptions = { batchSize, ...PRESERVE_TYPES }
+  // raw: the driver hands back each document's BSON bytes untouched (no decode/re-encode),
+  // which is also what crosses IPC. Types can't be promoted because nothing is decoded here.
+  const o: FindOptions = { batchSize, raw: true }
   if (q.project) o.projection = q.project
   if (q.sort) o.sort = q.sort as Sort
   if (q.collation) o.collation = q.collation as FindOptions['collation']
@@ -40,11 +41,11 @@ function findOptions(q: ParsedQuery, batchSize: number): FindOptions {
 }
 
 async function readBatch(cursor: FindCursor, max: number): Promise<FindPage> {
-  const docs: CanonicalEJSON[] = []
+  const docs: BsonBytes[] = []
   while (docs.length < max) {
     // Take what's already buffered first so we only hit the server when needed.
     const buffered = cursor.readBufferedDocuments(max - docs.length)
-    for (const d of buffered) docs.push(toCanonical(d))
+    for (const d of buffered) docs.push(ownBytes(d as unknown as Uint8Array))
     if (docs.length >= max) break
     if (!(await cursor.hasNext())) return { docs, exhausted: true }
   }

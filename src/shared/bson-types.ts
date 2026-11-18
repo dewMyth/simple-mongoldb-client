@@ -119,6 +119,31 @@ function formatDoubleDisplay(n: number): string {
   return Number.isInteger(n) ? `${n}.0` : String(n)
 }
 
+/**
+ * Like displayScalar, but formats at most `maxChars` of huge strings/binaries (a 10 MB string
+ * shouldn't be JSON-encoded in full to show 300 characters).
+ */
+export function displayScalarPreview(
+  v: unknown,
+  tag: BsonTypeTag,
+  maxChars: number
+): { text: string; truncated: boolean } {
+  if (tag === 'string' && (v as string).length > maxChars)
+    return { text: JSON.stringify((v as string).slice(0, maxChars)).slice(0, -1), truncated: true }
+  if (tag === 'binary') {
+    const b = v as { sub_type: number; buffer: Uint8Array }
+    const maxBytes = Math.ceil(maxChars * 0.75)
+    if (b.buffer.length > maxBytes) {
+      const head = Array.from(b.buffer.subarray(0, maxBytes), (x) => String.fromCharCode(x)).join('')
+      return { text: `BinData(${b.sub_type}, "${btoa(head)}`, truncated: true }
+    }
+  }
+  const text = displayScalar(v, tag)
+  return text.length > maxChars
+    ? { text: text.slice(0, maxChars), truncated: true }
+    : { text, truncated: false }
+}
+
 /** Compact, human-oriented text for a scalar (containers return ''). */
 export function displayScalar(v: unknown, tag: BsonTypeTag = bsonTypeOf(v)): string {
   switch (tag) {

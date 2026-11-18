@@ -6,7 +6,13 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Document } from 'bson'
 import { useQuery } from '@tanstack/react-query'
-import { bsonTypeLabel, bsonTypeOf, describeValue, displayScalar, isContainer } from '@shared/bson-types'
+import {
+  bsonTypeLabel,
+  bsonTypeOf,
+  describeValue,
+  displayScalarPreview,
+  isContainer
+} from '@shared/bson-types'
 import type { FieldStat } from '@shared/field-stats'
 import { cn } from '@renderer/lib/utils'
 import { ipc } from '../../lib/ipc'
@@ -178,14 +184,14 @@ function Cell({ value, present }: { value: unknown; present: boolean }) {
       </Popover>
     )
   }
-  const text = displayScalar(value, tag)
+  const { text, truncated } = displayScalarPreview(value, tag, MAX_CELL_TEXT)
   return (
     <div
       className={cn('selectable truncate', typeColor[tag])}
-      title={`${text.length > MAX_CELL_TEXT ? `${text.slice(0, MAX_CELL_TEXT)}…` : text}\n${describeValue(value, tag)}`}
+      title={`${text}${truncated ? '…' : ''}\n${describeValue(value, tag)}`}
       data-type={tag}
     >
-      {text.length > MAX_CELL_TEXT ? text.slice(0, MAX_CELL_TEXT) : text}
+      {text}
     </div>
   )
 }

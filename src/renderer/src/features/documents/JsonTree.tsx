@@ -12,6 +12,7 @@ import {
   bsonTypeOf,
   describeValue,
   displayScalar,
+  displayScalarPreview,
   isContainer,
   type BsonTypeTag
 } from '@shared/bson-types'
@@ -282,15 +283,23 @@ function Row({
 
 function ScalarValue({ value, tag }: { value: unknown; tag: BsonTypeTag }) {
   const [full, setFull] = useState(false)
-  const text = displayScalar(value, tag)
-  const long = (tag === 'string' || tag === 'binary') && text.length > MAX_STRING
+  // Only a prefix of huge strings/binaries is formatted until "show all".
+  const preview = displayScalarPreview(value, tag, MAX_STRING)
+  const long = preview.truncated && (tag === 'string' || tag === 'binary')
+  const text = long && full ? displayScalar(value, tag) : preview.text
+  // Only long strings/binaries have a size label (other values may be null, numbers, …).
+  const size = !long
+    ? ''
+    : tag === 'string'
+      ? `${(value as string).length.toLocaleString()} chars`
+      : `${(value as { buffer: Uint8Array }).buffer.length.toLocaleString()} bytes`
   return (
     <span
       className={cn('selectable min-w-0 break-all', typeColor[tag])}
       title={describeValue(value, tag)}
       data-testid="json-value"
     >
-      {long && !full ? `${text.slice(0, MAX_STRING)}…` : text}
+      {long && !full ? `${text}…` : text}
       {long && (
         <button
           type="button"
@@ -300,7 +309,7 @@ function ScalarValue({ value, tag }: { value: unknown; tag: BsonTypeTag }) {
             setFull(!full)
           }}
         >
-          {full ? 'show less' : `show all ${text.length.toLocaleString()} chars`}
+          {full ? 'show less' : `show all ${size}`}
         </button>
       )}
     </span>

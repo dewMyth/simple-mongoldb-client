@@ -24,6 +24,10 @@ test.beforeAll(async () => {
         ...(i % 2 ? { nickname: `n${i}` } : {})
       }))
     )
+  await c
+    .db('shop')
+    .collection('big')
+    .insertOne({ _id: 'big' as never, text: 'x'.repeat(3 * 1024 * 1024), small: 1 })
   await c.close()
 })
 
@@ -122,6 +126,33 @@ test('table view: sampled columns, typed cells, nested popover, paging', async (
     await page.getByTestId('page-next').click()
     await expect(table.getByTestId('table-row')).toHaveCount(5)
     await expect(table.getByTestId('table-row').first().locator('td').first()).toHaveText('26')
+  } finally {
+    await app.close()
+  }
+})
+
+test('large documents are previewed without freezing, and can be shown in full', async () => {
+  const { app, page } = await launchApp()
+  try {
+    await open(page, 'big')
+    const tree = page.getByTestId('json-tree').first()
+    const value = tree.locator('[data-path="text"] [data-testid="json-value"]')
+    await expect(value).toContainText('show all 3,145,728 chars')
+    expect((await value.textContent())!.length).toBeLessThan(400)
+
+    await page.getByTestId('view-json').click()
+    await expect(page.getByTestId('large-doc-note')).toContainText('Large document (3.0 MB)')
+    expect((await page.getByTestId('doc').first().locator('pre').textContent())!.length).toBeLessThanOrEqual(
+      100_000
+    )
+    await page
+      .getByTestId('large-doc-note')
+      .getByRole('button', { name: /Show all/ })
+      .click()
+    await expect(page.getByTestId('large-doc-note')).toContainText('shown in full')
+    expect((await page.getByTestId('doc').first().locator('pre').textContent())!.length).toBeGreaterThan(
+      3_000_000
+    )
   } finally {
     await app.close()
   }

@@ -97,21 +97,82 @@ export function formatScalar(v: unknown): string | null {
   }
 }
 
+class BudgetExceeded extends Error {}
+
+interface Writer {
+  parts: string[]
+  length: number
+  max: number
+}
+
+function write(w: Writer, s: string) {
+  w.parts.push(s)
+  w.length += s.length
+  if (w.length > w.max) throw new BudgetExceeded()
+}
+
+function emit(w: Writer, value: unknown, indent: number, level: number) {
+  const remaining = w.max - w.length
+  if (remaining < Infinity) {
+    // Huge strings/binaries: format only what can still fit (the writer then stops).
+    if (typeof value === 'string' && value.length > remaining)
+      return write(w, JSON.stringify(value.slice(0, remaining)))
+    const bin = value as { _bsontype?: string; sub_type?: number; buffer?: Uint8Array }
+    if (bin?._bsontype === 'Binary' && bin.buffer && bin.buffer.length > remaining) {
+      const head = Array.from(bin.buffer.subarray(0, Math.ceil(remaining * 0.75)), (b) =>
+        String.fromCharCode(b)
+      ).join('')
+      return write(w, `BinData(${bin.sub_type}, "${btoa(head)}`)
+    }
+  }
+  const scalar = formatScalar(value)
+  if (scalar !== null) return write(w, scalar)
+  const pad = indent ? '\n' + ' '.repeat(indent * (level + 1)) : ' '
+  const end = indent ? '\n' + ' '.repeat(indent * level) : ' '
+  if (Array.isArray(value)) {
+    if (!value.length) return write(w, '[]')
+    write(w, indent ? `[${pad}` : '[')
+    value.forEach((v, i) => {
+      if (i) write(w, indent ? `,${pad}` : ', ')
+      emit(w, v, indent, level + 1)
+    })
+    return write(w, indent ? `${end}]` : ']')
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (!entries.length) return write(w, '{}')
+  write(w, indent ? `{${pad}` : '{ ')
+  entries.forEach(([k, v], i) => {
+    if (i) write(w, indent ? `,${pad}` : ', ')
+    write(w, `${shellKey(k)}: `)
+    emit(w, v, indent, level + 1)
+  })
+  write(w, indent ? `${end}}` : ' }')
+}
+
 /**
  * Full shell-syntax rendering. `indent` = spaces per level (0 = single line).
  */
 export function toShellString(value: unknown, indent = 2, level = 0): string {
-  const scalar = formatScalar(value)
-  if (scalar !== null) return scalar
-  const pad = indent ? '\n' + ' '.repeat(indent * (level + 1)) : ' '
-  const end = indent ? '\n' + ' '.repeat(indent * level) : ' '
-  if (Array.isArray(value)) {
-    if (!value.length) return '[]'
-    const items = value.map((v) => toShellString(v, indent, level + 1))
-    return indent ? `[${pad}${items.join(`,${pad}`)}${end}]` : `[${items.join(', ')}]`
+  const w: Writer = { parts: [], length: 0, max: Infinity }
+  emit(w, value, indent, level)
+  return w.parts.join('')
+}
+
+/**
+ * Like toShellString, but stops once `maxLength` characters have been produced, so previewing a
+ * huge document costs about as much as the preview itself.
+ */
+export function toShellPreview(
+  value: unknown,
+  maxLength: number,
+  indent = 2
+): { text: string; truncated: boolean } {
+  const w: Writer = { parts: [], length: 0, max: maxLength }
+  try {
+    emit(w, value, indent, 0)
+    return { text: w.parts.join(''), truncated: false }
+  } catch (e) {
+    if (!(e instanceof BudgetExceeded)) throw e
+    return { text: w.parts.join('').slice(0, maxLength), truncated: true }
   }
-  const entries = Object.entries(value as Record<string, unknown>)
-  if (!entries.length) return '{}'
-  const parts = entries.map(([k, v]) => `${shellKey(k)}: ${toShellString(v, indent, level + 1)}`)
-  return indent ? `{${pad}${parts.join(`,${pad}`)}${end}}` : `{ ${parts.join(', ')} }`
 }
