@@ -146,6 +146,15 @@ export class StorageService {
     return this.toPublic(record)
   }
 
+  setReadOnly(id: string, readOnly: boolean): SavedConnection {
+    const list = this.all()
+    const c = list.find((x) => x.id === id)
+    if (!c) throw new Error(`Unknown connection: ${id}`)
+    c.readOnly = readOnly
+    this.store.set(list)
+    return this.toPublic(c)
+  }
+
   delete(id: string): void {
     this.store.set(this.all().filter((c) => c.id !== id))
   }

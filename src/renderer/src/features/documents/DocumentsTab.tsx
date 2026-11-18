@@ -22,6 +22,7 @@ import { Input } from '../../components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
 import { useResultsStore, type TabResults } from './results-store'
 import { JsonTree, type ExpandMode } from './JsonTree'
+import { PermissionsPanel } from '../permissions/PermissionsPanel'
 
 interface ExpandRequest {
   epoch: number
@@ -155,6 +156,7 @@ function ResultsHeader({
           {countText}
         </span>
         {r.pageMs !== null && <span title="Time to load this page">{r.pageMs} ms</span>}
+        {r.target && <PermissionsPanel connectionId={r.target.connectionId} ns={r.target.ns} />}
         <ToggleGroup
           type="single"
           size="sm"

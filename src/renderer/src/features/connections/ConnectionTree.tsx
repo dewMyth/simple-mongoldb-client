@@ -12,6 +12,7 @@ import { useTabsStore } from '../../stores/tabs'
 import { colorHex } from './colors'
 import { ConnectionDialog } from './ConnectionDialog'
 import { CreateCollectionDialog } from './CreateCollectionDialog'
+import { useCan, useCanCreateDatabase } from '../permissions/queries'
 import {
   keys,
   useActiveConnections,
@@ -136,6 +137,7 @@ function FolderNode({ name, children }: { name: string; children: ReactNode }) {
 
 function ConnectionNode({ conn, filter, depth }: { conn: SavedConnection; filter: string; depth: number }) {
   const qc = useQueryClient()
+  const createDb = useCanCreateDatabase(conn.id)
   const { data: active = [] } = useActiveConnections()
   const isOpen = active.some((a) => a.id === conn.id)
   const connect = useConnect()
@@ -170,9 +172,17 @@ function ConnectionNode({ conn, filter, depth }: { conn: SavedConnection; filter
     },
     {
       label: 'Create database…',
-      disabled: !isOpen,
+      disabled: !isOpen || !createDb.allowed,
+      reason: isOpen ? createDb.reason : undefined,
       onSelect: () => setDialog('createDb'),
       separatorBefore: true
+    },
+    {
+      label: conn.readOnly ? 'Turn read-only off' : 'Turn read-only on',
+      onSelect: () =>
+        void ipc('connections:setReadOnly', { id: conn.id, readOnly: !conn.readOnly }).then(() =>
+          qc.invalidateQueries({ queryKey: keys.saved })
+        )
     },
     { label: 'Edit…', onSelect: () => setDialog('edit'), separatorBefore: true },
     { label: 'Duplicate…', onSelect: () => setDialog('duplicate') },
@@ -331,6 +341,8 @@ function DatabaseNode({
   depth: number
 }) {
   const qc = useQueryClient()
+  const createColl = useCan(connId, name, 'createCollection')
+  const dropDb = useCan(connId, name, 'dropDatabase')
   const [expanded, setExpanded] = useState(false)
   const [dialog, setDialog] = useState<null | 'create' | 'drop'>(null)
   const closeTabs = useTabsStore((s) => s.tabs)
@@ -345,12 +357,24 @@ function DatabaseNode({
   const isExpanded = expanded || (!!f && visible.length > 0)
 
   const items: MenuItem[] = [
-    { label: 'Create collection…', onSelect: () => setDialog('create') },
+    {
+      label: 'Create collection…',
+      disabled: !createColl.allowed,
+      reason: createColl.reason,
+      onSelect: () => setDialog('create')
+    },
     {
       label: 'Refresh',
       onSelect: () => void qc.invalidateQueries({ queryKey: keys.collections(connId, name) })
     },
-    { label: 'Drop database…', danger: true, onSelect: () => setDialog('drop'), separatorBefore: true }
+    {
+      label: 'Drop database…',
+      danger: true,
+      disabled: !dropDb.allowed,
+      reason: dropDb.reason,
+      onSelect: () => setDialog('drop'),
+      separatorBefore: true
+    }
   ]
 
   return (
@@ -444,6 +468,7 @@ function CollectionNode({
 }) {
   const qc = useQueryClient()
   const ns = `${db}.${coll.name}`
+  const dropColl = useCan(connId, ns, 'dropCollection')
   const openTab = useTabsStore((s) => s.open)
   const closeTab = useTabsStore((s) => s.close)
   const tabs = useTabsStore((s) => s.tabs)
@@ -460,6 +485,8 @@ function CollectionNode({
     {
       label: coll.type === 'view' ? 'Drop view…' : 'Drop collection…',
       danger: true,
+      disabled: !dropColl.allowed,
+      reason: dropColl.reason,
       onSelect: () => setDropping(true),
       separatorBefore: true
     }

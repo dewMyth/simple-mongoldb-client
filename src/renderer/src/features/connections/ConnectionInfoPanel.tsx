@@ -1,4 +1,6 @@
 import { useActiveConnections, useSavedConnections } from './queries'
+import { usePermissions } from '../permissions/queries'
+import { UserSummary } from '../permissions/PermissionsPanel'
 import { redactUri } from '@shared/connection-fields'
 
 export function ConnectionInfoPanel({ connectionId }: { connectionId: string }) {
@@ -6,6 +8,7 @@ export function ConnectionInfoPanel({ connectionId }: { connectionId: string }) 
   const { data: saved = [] } = useSavedConnections()
   const info = active.find((a) => a.id === connectionId)
   const conn = saved.find((c) => c.id === connectionId)
+  const { data: snapshot } = usePermissions(connectionId)
   if (!info || !conn) return <div className="p-6 text-xs text-muted-foreground">Not connected.</div>
   const s = info.server
   const rows: [string, string][] = [
@@ -32,6 +35,14 @@ export function ConnectionInfoPanel({ connectionId }: { connectionId: string }) 
           </div>
         ))}
       </dl>
+      {snapshot && (
+        <section className="mt-6 max-w-3xl">
+          <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Access</h3>
+          <UserSummary snapshot={snapshot} />
+          {snapshot.readOnlyOverride && <p className="mt-2 text-xs text-warn">Read-only mode is on.</p>}
+          {snapshot.secondaryReason && <p className="mt-2 text-xs text-warn">{snapshot.secondaryReason}</p>}
+        </section>
+      )}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from './ui/context-menu'
+import { ReasonText } from './ReasonText'
 
 export interface MenuItem {
   label: string
@@ -30,9 +31,15 @@ export function ContextMenu({ items, children }: { items: MenuItem[]; children: 
               onSelect={item.onSelect}
               title={item.disabled ? item.reason : undefined}
               variant={item.danger ? 'destructive' : 'default'}
-              className="text-[13px]"
+              className="max-w-80 flex-col items-start gap-0 text-[13px]"
             >
               {item.label}
+              {/* Disabled items can't show tooltips (no pointer events), so the reason is inline. */}
+              {item.disabled && item.reason ? (
+                <span className="text-[11px] leading-tight text-muted-foreground" data-testid="menu-reason">
+                  <ReasonText text={item.reason} />
+                </span>
+              ) : null}
             </ContextMenuItem>
           </div>
         ))}

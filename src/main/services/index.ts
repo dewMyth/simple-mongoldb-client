@@ -4,6 +4,7 @@ import Store from 'electron-store'
 import { ConnectionManager } from './connection-manager'
 import { DatabaseService } from './database-service'
 import { CursorRegistry } from './cursor-registry'
+import { PermissionService } from './permission-service'
 import { HistoryService, type HistoryData } from './history-service'
 import { QueryService } from './query-service'
 import { StorageService, type SecretCipher, type StoredConnection } from './storage-service'
@@ -28,6 +29,7 @@ export const storage = new StorageService(
 )
 export const connections = new ConnectionManager()
 export const databases = new DatabaseService(connections)
+export const permissions = new PermissionService()
 export const cursors = new CursorRegistry()
 export const queries = new QueryService(connections, cursors)
 

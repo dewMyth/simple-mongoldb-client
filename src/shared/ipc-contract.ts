@@ -26,6 +26,7 @@ import {
   type HistoryEntry,
   type QueryFieldError
 } from './query'
+import type { PermissionSnapshot } from './permissions'
 
 /** Declares a channel: zod input schema + output type carried only at the type level. */
 function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
@@ -109,6 +110,12 @@ export const ipcContract = {
   'connections:connect': channel<typeof connId, ActiveConnection>(connId),
   'connections:disconnect': channel<typeof connId, void>(connId),
   'connections:active': channel<z.ZodVoid, ActiveConnection[]>(z.void()),
+  /** Toggle the read-only override; applies immediately to an open connection. */
+  'connections:setReadOnly': channel<
+    z.ZodObject<{ id: typeof connId; readOnly: z.ZodBoolean }>,
+    SavedConnection
+  >(z.object({ id: connId, readOnly: z.boolean() })),
+  'permissions:get': channel<typeof connId, PermissionSnapshot | null>(connId),
 
   'db:listDatabases': channel<typeof connId, DatabaseInfo[]>(connId),
   'db:listCollections': channel<
@@ -202,6 +209,11 @@ export class IpcError extends Error {
 export interface IpcEvents {
   'settings:changed': Settings
   'connections:activeChanged': ActiveConnection[]
+  'permissions:changed': PermissionSnapshot
 }
 export type EventName = keyof IpcEvents
-export const ipcEventNames: EventName[] = ['settings:changed', 'connections:activeChanged']
+export const ipcEventNames: EventName[] = [
+  'settings:changed',
+  'connections:activeChanged',
+  'permissions:changed'
+]

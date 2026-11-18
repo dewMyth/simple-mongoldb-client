@@ -1,5 +1,19 @@
 import { handle } from './router'
-import { cursors, history, queries } from '../services'
+import { cursors, history, permissions, queries } from '../services'
+import { isUnauthorized } from '../services/permission-service'
+
+/**
+ * Reads are never blocked up front (the server is the authority), but an Unauthorized result
+ * is remembered so the UI can explain it and stop offering the action.
+ */
+async function learnFind<T>(connectionId: string, ns: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (isUnauthorized(err)) permissions.recordDenied(connectionId, ns, 'find', err)
+    throw err
+  }
+}
 import { formatQueryText, validateQueryField } from '../services/query-parser'
 
 export function registerQueryHandlers(): void {
@@ -7,9 +21,9 @@ export function registerQueryHandlers(): void {
 
   handle('query:validate', ({ field, text }) => validateQueryField(field, text))
   handle('query:format', ({ field, text }) => formatQueryText(text, field))
-  handle('query:find', (input) => queries.find(input))
+  handle('query:find', (input) => learnFind(input.connectionId, input.ns, () => queries.find(input)))
   handle('query:getMore', ({ cursorId, count }) => queries.getMore(cursorId, count))
-  handle('query:count', (input) => queries.count(input))
+  handle('query:count', (input) => learnFind(input.connectionId, input.ns, () => queries.count(input)))
   handle('ops:cancel', (id) => cursors.cancel(id))
   handle('ops:cancelForTab', (tabId) => cursors.cancelForTab(tabId))
 

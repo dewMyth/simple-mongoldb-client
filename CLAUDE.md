@@ -40,3 +40,8 @@
   overrides PLAN.md Phase 5). Each page is its own find() with skip/limit layered on the user's skip/limit
   (`pageWindow`), fetched in one batch so no cursor stays open between pages. Paging reuses the query as
   it was when Find was pressed; only Find recounts.
+- Permissions: shared/permissions.ts has the pure `can()`; main's PermissionService enforces it. Every
+  write IPC handler must wrap its work in `permissions.guard(connId, ns, action, fn)` (checks the
+  read-only override, secondary reads, learned denials and privileges, and records Unauthorized errors).
+  Reads are never pre-blocked; they only learn from code 13. Use "db" as the ns for database-level actions.
+- Test users for permission work: `scripts/seed-users.ts` (reader / writer / dba, password "pw").

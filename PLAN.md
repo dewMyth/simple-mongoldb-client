@@ -190,9 +190,9 @@ Compass's query bar accepts **shell syntax**, not strict JSON. These must all wo
 - Display the current user, their roles and a "why can't I edit?" panel per collection.
 
 **Done when**
-- [ ] Integration tests with three users (`read`, `readWrite`, `dbAdmin` on different DBs) assert the correct buttons are enabled per namespace
-- [ ] The read-only toggle blocks every write path, including the shell (Phase 9)
-- [ ] An optimistic-mode Unauthorized error disables the action without crashing
+- [x] Integration tests with three users (`read`, `readWrite`, `dbAdmin` on different DBs) assert the correct buttons are enabled per namespace
+- [ ] The read-only toggle blocks every write path, including the shell (Phase 9) _(every current write path is blocked in main and tested; the shell arrives in Phase 11)_
+- [x] An optimistic-mode Unauthorized error disables the action without crashing
 
 ---
 

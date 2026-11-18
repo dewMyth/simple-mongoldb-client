@@ -1,5 +1,10 @@
 import { cn } from '@renderer/lib/utils'
-import { Info, Table2, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Info, Lock, Table2, X } from 'lucide-react'
+import { isReadOnly } from '@shared/permissions'
+import { ipc } from '../lib/ipc'
+import { keys } from '../features/connections/queries'
+import { usePermissions } from '../features/permissions/queries'
 import { useTabsStore } from '../stores/tabs'
 import { useSavedConnections } from '../features/connections/queries'
 import { colorHex } from '../features/connections/colors'
@@ -50,6 +55,7 @@ export function TabBar() {
             )}
             <Icon size={12} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate">{t.title}</span>
+            <TabLock connectionId={t.connectionId} />
             <button
               type="button"
               aria-label="Close tab"
@@ -66,5 +72,36 @@ export function TabBar() {
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Lock shown on tabs of read-only connections. Clicking toggles the user's read-only override;
+ * a secondary-only lock can't be turned off from here, so it just explains why.
+ */
+function TabLock({ connectionId }: { connectionId: string }) {
+  const qc = useQueryClient()
+  const { data: snapshot } = usePermissions(connectionId)
+  if (!isReadOnly(snapshot)) return null
+  const override = !!snapshot?.readOnlyOverride
+  return (
+    <button
+      type="button"
+      aria-label={override ? 'Read-only (click to allow writes)' : 'Read-only'}
+      title={
+        override ? 'Read-only mode is on. Click to turn it off.' : (snapshot?.secondaryReason ?? 'Read-only')
+      }
+      data-testid="tab-lock"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={() => {
+        if (!override) return
+        void ipc('connections:setReadOnly', { id: connectionId, readOnly: false }).then(() =>
+          qc.invalidateQueries({ queryKey: keys.saved })
+        )
+      }}
+      className="shrink-0 rounded p-0.5 text-warn hover:bg-panel-2"
+    >
+      <Lock size={11} />
+    </button>
   )
 }

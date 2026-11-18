@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useThemeStore } from '../stores/theme'
+import { usePermissionEvents } from '../features/permissions/queries'
 import { Sidebar } from './Sidebar'
 import { TabBar } from './TabBar'
 import { MainPanel } from './MainPanel'
@@ -7,6 +8,7 @@ import { StatusBar } from './StatusBar'
 
 export function App() {
   const init = useThemeStore((s) => s.init)
+  usePermissionEvents()
   useEffect(() => {
     void init()
   }, [init])
