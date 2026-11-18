@@ -282,9 +282,9 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - Closing a tab kills its cursors and shell sessions (via `CursorRegistry`).
 
 **Done when**
-- [ ] 20 open tabs across 3 connections stay responsive (tab switch < 100 ms)
-- [ ] Restart restores all tabs with their queries
-- [ ] Closing a tab with a running query leaves no open cursor on the server
+- [x] 20 open tabs across 3 connections stay responsive (tab switch < 100 ms) (measured: ~32 ms p50, ~35 ms max)
+- [x] Restart restores all tabs with their queries
+- [x] Closing a tab with a running query leaves no open cursor on the server
 
 ---
 

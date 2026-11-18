@@ -24,8 +24,10 @@ import {
   type FindPage,
   type FindResult,
   type HistoryEntry,
-  type QueryFieldError
+  type QueryFieldError,
+  type RecentQuery
 } from './query'
+import { workspaceSchema, type Workspace } from './workspace'
 import type { PermissionSnapshot } from './permissions'
 import type { FieldStat } from './field-stats'
 import type { InsertResult, ParseDocumentsResult, UpdatePreview, UpdateResult } from './documents'
@@ -222,6 +224,20 @@ export const ipcContract = {
     HistoryEntry[]
   >(nsTarget.extend({ query: queryTextSchema })),
   'history:clear': channel<typeof nsTarget, void>(nsTarget),
+  /** Most recent queries across namespaces, optionally only for some connections (command palette). */
+  'history:recent': channel<
+    z.ZodObject<{ limit: z.ZodOptional<z.ZodNumber>; connectionIds: z.ZodOptional<z.ZodArray<z.ZodString>> }>,
+    RecentQuery[]
+  >(
+    z.object({
+      limit: z.number().int().min(1).max(200).optional(),
+      connectionIds: z.array(z.string().min(1)).max(100).optional()
+    })
+  ),
+
+  /** Open tabs, their queries and the split view, restored on the next start (never re-run). */
+  'workspace:get': channel<z.ZodVoid, Workspace | null>(z.void()),
+  'workspace:save': channel<typeof workspaceSchema, void>(workspaceSchema),
   'favorites:list': channel<z.ZodOptional<typeof nsSchema>, FavoriteQuery[]>(nsSchema.optional()),
   'favorites:save': channel<
     z.ZodObject<{

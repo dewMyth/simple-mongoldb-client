@@ -2,7 +2,7 @@
  * Query history (last 200 per connection + namespace) and saved/favourite queries.
  */
 import { randomUUID } from 'node:crypto'
-import type { FavoriteQuery, HistoryEntry, QueryText } from '@shared/query'
+import type { FavoriteQuery, HistoryEntry, QueryText, RecentQuery } from '@shared/query'
 import { isQueryEmpty } from '@shared/query'
 
 export const HISTORY_LIMIT = 200
@@ -37,6 +37,18 @@ export class HistoryService {
     const next = [{ id: randomUUID(), query, ranAt: Date.now() }, ...rest].slice(0, HISTORY_LIMIT)
     this.backend.set({ ...data, history: { ...data.history, [k]: next } })
     return next
+  }
+
+  /** The most recent queries across every namespace (command palette). */
+  recent(limit = 30, connectionIds?: string[]): RecentQuery[] {
+    const out: RecentQuery[] = []
+    for (const [k, entries] of Object.entries(this.backend.get().history)) {
+      const sep = k.indexOf('|')
+      const connectionId = k.slice(0, sep)
+      if (connectionIds && !connectionIds.includes(connectionId)) continue
+      for (const e of entries.slice(0, limit)) out.push({ ...e, connectionId, ns: k.slice(sep + 1) })
+    }
+    return out.sort((a, b) => b.ranAt - a.ranAt).slice(0, limit)
   }
 
   clear(connectionId: string, ns: string): void {

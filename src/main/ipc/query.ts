@@ -1,5 +1,5 @@
 import { handle } from './router'
-import { cursors, history, permissions, queries, schemas } from '../services'
+import { cursors, history, permissions, queries, schemas, workspace } from '../services'
 import { isUnauthorized } from '../services/permission-service'
 
 /**
@@ -42,6 +42,9 @@ export function registerQueryHandlers(): void {
   handle('history:list', ({ connectionId, ns }) => history.list(connectionId, ns))
   handle('history:add', ({ connectionId, ns, query }) => history.add(connectionId, ns, query))
   handle('history:clear', ({ connectionId, ns }) => history.clear(connectionId, ns))
+  handle('history:recent', ({ limit, connectionIds }) => history.recent(limit, connectionIds))
+  handle('workspace:get', () => workspace.load())
+  handle('workspace:save', (ws) => workspace.save(ws))
   handle('favorites:list', (ns) => history.listFavorites(ns))
   handle('favorites:save', (input) => history.saveFavorite(input))
   handle('favorites:delete', (id) => history.deleteFavorite(id))

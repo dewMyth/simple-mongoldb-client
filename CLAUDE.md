@@ -68,3 +68,11 @@
   (`python3 -m venv .venv-codegen && .venv-codegen/bin/pip install pymongo`, or set PYTHON), else skipped.
 - E2E: hover with a stepped `page.mouse.move` (Monaco ignores a single synthetic mousemove); reopen a Radix
   menu only after the previous content unmounts (150 ms exit animation; a click during it closes the new one).
+- Workspace: stores/tabs.ts (tabs, split view, pins, reopen stack) is persisted by stores/workspace-persist.ts
+  through `workspace:get/save` (schema in src/shared/workspace.ts, validated in main). Restored tabs have
+  `autoRun: false` and wait for Find; a tab whose connection isn't open shows a Connect button.
+  With a split, `activate()` targets the focused pane; use `focusedTabId()` for "the current tab".
+- Production connections: every write channel (`WRITE_CHANNELS` in lib/ipc.ts) passes the write guard,
+  which asks for confirmation (features/connections/production-guard.ts). New write channels must be
+  added to `WRITE_CHANNELS`. A declined write throws IpcError name 'CancelledError'.
+- Renderer-only unit tests go in tests/renderer (typechecked by tsconfig.web.json, not the node project).

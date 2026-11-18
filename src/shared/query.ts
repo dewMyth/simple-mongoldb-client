@@ -108,3 +108,9 @@ export function resultTotal(filterCount: number, user: { skip?: number; limit?: 
   const afterSkip = Math.max(0, filterCount - (user.skip ?? 0))
   return user.limit ? Math.min(afterSkip, user.limit) : afterSkip
 }
+
+/** A history entry with the namespace it ran on (command palette). */
+export interface RecentQuery extends HistoryEntry {
+  connectionId: string
+  ns: string
+}

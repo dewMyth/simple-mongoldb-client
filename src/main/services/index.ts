@@ -1,5 +1,7 @@
 /** Wires the Electron-backed singletons. Services themselves stay Electron-free. */
 import { safeStorage } from 'electron'
+import type { Workspace } from '@shared/workspace'
+import { WorkspaceService } from './workspace-service'
 import Store from 'electron-store'
 import { ConnectionManager } from './connection-manager'
 import { DatabaseService } from './database-service'
@@ -45,4 +47,13 @@ const historyStore = new Store<{ data: HistoryData }>({
 export const history = new HistoryService({
   get: () => historyStore.get('data'),
   set: (d) => historyStore.set('data', d)
+})
+
+const workspaceStore = new Store<{ workspace: Workspace | null }>({
+  name: 'workspace',
+  defaults: { workspace: null }
+})
+export const workspace = new WorkspaceService({
+  get: () => workspaceStore.get('workspace'),
+  set: (w) => workspaceStore.set('workspace', w)
 })

@@ -18,7 +18,7 @@ import { PAGE_SIZE, resultTotal } from '@shared/query'
 import { toShellString } from '@shared/shell-format'
 import { cn } from '@renderer/lib/utils'
 import type { Tab, ViewMode } from '../../stores/tabs'
-import { useTabsStore } from '../../stores/tabs'
+import { focusedTabId, useTabsStore } from '../../stores/tabs'
 import { ErrorBox, Spinner } from '../../components/form'
 import { QueryBar } from '../query-bar/QueryBar'
 import { Button } from '../../components/ui/button'
@@ -108,22 +108,24 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
   }, [run, tab.id, tab.connectionId, ns, tab.query])
   const onCancel = useCallback(() => void cancel(tab.id), [cancel, tab.id])
 
-  // Run once when the tab is first opened (like Compass). Restored tabs (Phase 8) won't auto-run.
+  // Run once when the tab is first opened (like Compass). Restored tabs wait for Find.
   const started = useRef(false)
   useEffect(() => {
     if (!started.current && results.status === 'idle' && results.runId === 0) {
       started.current = true
-      onRun()
+      if (tab.autoRun) onRun()
     }
-  }, [onRun, results.status, results.runId])
+  }, [onRun, results.status, results.runId, tab.autoRun])
 
   // Esc cancels from anywhere in the tab, not just inside the editor.
   useEffect(() => {
     if (results.status !== 'running') return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancel()
+    // With a split view, only the focused pane's query is cancelled.
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && focusedTabId(useTabsStore.getState()) === tab.id && onCancel()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [results.status, onCancel])
+  }, [results.status, onCancel, tab.id])
 
   return (
     <DocsContext.Provider value={target}>
@@ -428,6 +430,7 @@ function ResultsList({
 } & EditingProps) {
   const updateCheck = useWriteCheck('update')
   const r = useResultsStore((s) => s.byTab[tabId])
+  const autoRun = useTabsStore((s) => s.tabs.find((t) => t.id === tabId)?.autoRun ?? true)
   const parentRef = useRef<HTMLDivElement>(null)
   const docs = r?.docs ?? []
   const virtualizer = useVirtualizer({
@@ -437,11 +440,33 @@ function ResultsList({
     overscan: 4
   })
 
-  // A new page starts at the top (r.docs only changes identity when a page arrives).
+  // A new page starts at the top (r.docs only changes identity when a page arrives), except
+  // when the tab is shown again: then it returns to the document it was scrolled to.
   const pageDocs = r?.docs
+  const restoredScroll = useRef(false)
   useEffect(() => {
+    const anchor = useTabsStore.getState().tabs.find((t) => t.id === tabId)?.scrollAnchor ?? 0
+    if (!restoredScroll.current && pageDocs?.length) {
+      restoredScroll.current = true
+      if (anchor > 0 && anchor < pageDocs.length) {
+        virtualizer.scrollToIndex(anchor, { align: 'start' })
+        return
+      }
+    }
     parentRef.current?.scrollTo({ top: 0 })
-  }, [pageDocs])
+  }, [pageDocs, tabId, virtualizer])
+
+  // Remember the first visible document (debounced) so switching tabs keeps the place.
+  const anchorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => void (anchorTimer.current && clearTimeout(anchorTimer.current)), [])
+  const onScroll = () => {
+    if (anchorTimer.current) clearTimeout(anchorTimer.current)
+    anchorTimer.current = setTimeout(() => {
+      const top = parentRef.current?.scrollTop ?? 0
+      const first = virtualizer.getVirtualItems().find((i) => i.end > top)
+      useTabsStore.getState().setScrollAnchor(tabId, first?.index ?? 0)
+    }, 150)
+  }
 
   // Performance instrumentation (read by scripts/bench-ui.ts): once the page has been painted,
   // record query time (request → data) and render time (data → pixels) as a measure.
@@ -471,7 +496,17 @@ function ResultsList({
     }
   }, [pageDocs, receivedAt, requestedAt, viewMode])
 
-  if (!r) return null
+  if (!r || (r.status === 'idle' && r.runId === 0)) {
+    if (autoRun) return null // about to run
+    return (
+      <div
+        className="flex flex-1 items-center justify-center text-xs text-muted-foreground"
+        data-testid="restored-hint"
+      >
+        Press Find (⌘↵) to run this query.
+      </div>
+    )
+  }
   if (r.status === 'error' && r.error) {
     return (
       <div className="p-4">
@@ -520,6 +555,7 @@ function ResultsList({
   return (
     <div
       ref={parentRef}
+      onScroll={onScroll}
       className={cn('min-h-0 flex-1 overflow-auto pb-2 transition-opacity', loading && 'opacity-60')}
       data-testid="results-list"
     >

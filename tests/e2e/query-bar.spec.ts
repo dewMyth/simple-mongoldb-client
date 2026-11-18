@@ -150,6 +150,25 @@ test('closing a tab with a running query kills it on the server', async () => {
   }
 })
 
+test('a query left running in a background tab is killed by "Close others"', async () => {
+  const { app, page } = await launchApp()
+  try {
+    await openOrders(page)
+    await runFilter(page, '{ $where: "sleep(100) || true" }')
+    await expect.poll(async () => (await serverOps()).length, { timeout: 5000 }).toBeGreaterThan(0)
+    // Open another tab (Cmd/Ctrl+click); the first keeps running in the background.
+    await page.getByTestId('coll-shop.orders').click({ modifiers: ['ControlOrMeta'] })
+    await expect(page.getByRole('tab')).toHaveCount(2)
+    expect((await serverOps()).length).toBeGreaterThan(0)
+    await page.getByRole('tab').nth(1).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Close others' }).click()
+    await expect(page.getByRole('tab')).toHaveCount(1)
+    await expect.poll(async () => (await serverOps()).length, { timeout: 5000 }).toBe(0)
+  } finally {
+    await app.close()
+  }
+})
+
 test('pages through results 25 at a time', async () => {
   const { app, page } = await launchApp()
   const firstI = () =>

@@ -14,9 +14,14 @@ export function electronEnv(extra: Record<string, string> = {}): Record<string, 
   return { ...env, NODE_ENV: 'test', ...extra }
 }
 
-/** Launches the built app with an isolated user-data dir so tests never touch real settings. */
-export async function launchApp(): Promise<{ app: ElectronApplication; page: Page; userData: string }> {
-  const userData = mkdtempSync(join(tmpdir(), 'mongo-studio-e2e-'))
+/**
+ * Launches the built app with an isolated user-data dir so tests never touch real settings.
+ * Pass a previous run's `userData` to simulate a restart.
+ */
+export async function launchApp(
+  existingUserData?: string
+): Promise<{ app: ElectronApplication; page: Page; userData: string }> {
+  const userData = existingUserData ?? mkdtempSync(join(tmpdir(), 'mongo-studio-e2e-'))
   const app = await electron.launch({
     args: ['.', `--user-data-dir=${userData}`],
     env: electronEnv()

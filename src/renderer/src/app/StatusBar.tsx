@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { ipc } from '../lib/ipc'
-import { useTabsStore } from '../stores/tabs'
+import { focusedTabId, useTabsStore } from '../stores/tabs'
 import { useActiveConnections, useSavedConnections } from '../features/connections/queries'
 
 export function StatusBar() {
   const { data } = useQuery({ queryKey: ['app-info'], queryFn: () => ipc('app:info') })
   const { data: active = [] } = useActiveConnections()
   const { data: saved = [] } = useSavedConnections()
-  const tab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeId))
+  const tab = useTabsStore((s) => s.tabs.find((t) => t.id === focusedTabId(s)))
   const current = tab ? active.find((a) => a.id === tab.connectionId) : undefined
   const conn = tab ? saved.find((c) => c.id === tab.connectionId) : undefined
 
