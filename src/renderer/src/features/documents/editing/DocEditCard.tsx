@@ -1,7 +1,7 @@
 /**
  * Editing one document, inline (tree) or as shell-syntax JSON, with conflict-safe saving.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import type { Document } from 'bson'
 import { Redo2, Undo2 } from 'lucide-react'
 import { fromBsonBytes, toBsonBytes, type BsonBytes } from '@shared/bson-wire'
@@ -215,6 +215,8 @@ function JsonEditor({
   saveState: SaveState
   onCancel: () => void
 }) {
+  const { connectionId, ns } = useDocsTarget()
+  const completion = useMemo(() => ({ mode: 'document' as const, connectionId, ns }), [connectionId, ns])
   const [text, setText] = useState(() => toShellString(doc))
   const [error, setError] = useState<EditorError | null>(null)
 
@@ -253,6 +255,7 @@ function JsonEditor({
         error={error}
         testId="json-doc-editor"
         maxHeight={560}
+        completion={completion}
       />
       {error && <div className="px-1 pt-1 text-xs text-destructive">{error.message}</div>}
       <Footer

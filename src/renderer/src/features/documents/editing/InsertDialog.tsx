@@ -88,6 +88,7 @@ export function InsertDialog({ initialText, onClose }: { initialText: string; on
           error={error}
           minLines={10}
           testId="insert-editor"
+          completion={{ mode: 'document', connectionId, ns }}
         />
         {error && <div className="text-xs text-destructive">{error.message}</div>}
         {result && (

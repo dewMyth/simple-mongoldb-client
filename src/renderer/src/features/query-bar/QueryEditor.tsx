@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { QueryField, QueryFieldError } from '@shared/query'
+import type { CompletionMode } from '@shared/autocomplete/complete'
 import { monaco, SHELL_LANGUAGE } from '../../lib/monaco'
+import { attachCompletion, completionEditorOptions } from '../../lib/autocomplete'
 import { ipc } from '../../lib/ipc'
 import { useThemeStore } from '../../stores/theme'
 
@@ -17,6 +19,14 @@ const LINE_HEIGHT = 19
 const MAX_LINES = 8
 const MARKER_OWNER = 'query-parser'
 
+const completionMode: Partial<Record<QueryField, CompletionMode>> = {
+  filter: 'filter',
+  project: 'project',
+  sort: 'sort',
+  hint: 'sort', // a key pattern has the same shape as a sort
+  collation: 'collation'
+}
+
 /**
  * A compact Monaco editor for one query-bar field, with:
  *  - live parse errors from main (debounced) shown as squiggles
@@ -31,7 +41,8 @@ export function QueryEditor({
   handlers,
   externalError,
   testId,
-  autoFocus
+  autoFocus,
+  namespace
 }: {
   field: QueryField
   value: string
@@ -42,6 +53,8 @@ export function QueryEditor({
   externalError?: QueryFieldError | null
   testId?: string
   autoFocus?: boolean
+  /** Field-name suggestions come from a sample of this collection. */
+  namespace?: { connectionId: string; ns: string }
 }) {
   const resolved = useThemeStore((s) => s.resolved)
   const editorRef = useRef<IEditor | null>(null)
@@ -53,6 +66,13 @@ export function QueryEditor({
   useEffect(() => {
     handlersRef.current = handlers
   }, [handlers])
+
+  const namespaceRef = useRef(namespace)
+  useEffect(() => {
+    namespaceRef.current = namespace
+  }, [namespace])
+  const detachRef = useRef<() => void>(() => {})
+  useEffect(() => () => detachRef.current(), [])
 
   // Debounced validation in main (the parser lives there).
   useEffect(() => {
@@ -96,6 +116,9 @@ export function QueryEditor({
 
   const onMount: OnMount = (editor) => {
     editorRef.current = editor
+    const mode = completionMode[field]
+    if (mode)
+      detachRef.current = attachCompletion(editor.getModel(), () => ({ mode, ...namespaceRef.current }))
     const updateHeight = () => {
       const lines = Math.min(MAX_LINES, Math.max(1, editor.getModel()?.getLineCount() ?? 1))
       setHeight(lines * LINE_HEIGHT + 10)
@@ -202,9 +225,7 @@ export function QueryEditor({
           fixedOverflowWidgets: true,
           contextmenu: false,
           tabSize: 2,
-          quickSuggestions: false,
-          wordBasedSuggestions: 'off',
-          suggestOnTriggerCharacters: false,
+          ...completionEditorOptions,
           parameterHints: { enabled: false },
           renderValidationDecorations: 'on',
           stickyScroll: { enabled: false },

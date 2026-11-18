@@ -1,6 +1,6 @@
 /**
  * Samples a collection and summarises its fields (paths, types, frequency).
- * Phase 5 uses it for table columns; Phase 7 for autocomplete; Phase 12 for the schema tab.
+ * Used for table columns, autocomplete (1,000-doc sample with values) and, in Phase 12, the schema tab.
  */
 import { collectFieldStats, type FieldStat } from '@shared/field-stats'
 import type { ConnectionManager } from './connection-manager'
@@ -25,6 +25,8 @@ export class SchemaService {
     ns: string
     tabId?: string | null
     size?: number
+    /** Collect distinct string values for fields with at most this many (value autocomplete). */
+    maxValues?: number
   }): Promise<FieldSample> {
     const client = this.connections.client(input.connectionId)
     const { db, coll } = splitNamespace(input.ns)
@@ -46,7 +48,7 @@ export class SchemaService {
           signal: op.controller.signal
         })
         .toArray()
-      return { sampled: docs.length, fields: collectFieldStats(docs) }
+      return { sampled: docs.length, fields: collectFieldStats(docs, { maxValues: input.maxValues }) }
     } catch (err) {
       throw new ReadableError(err)
     } finally {

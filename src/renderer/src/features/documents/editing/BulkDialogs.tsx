@@ -85,7 +85,13 @@ export function BulkUpdateDialog({ query, onClose }: { query: QueryText; onClose
           <span className="text-muted-foreground">Filter: </span>
           <code className="selectable font-mono">{filterSummary(query)}</code>
         </div>
-        <CodeEditor value={text} onChange={setText} minLines={7} testId="bulk-update-editor" />
+        <CodeEditor
+          value={text}
+          onChange={setText}
+          minLines={7}
+          testId="bulk-update-editor"
+          completion={{ mode: 'update', connectionId, ns }}
+        />
         <div className="flex items-center gap-2 text-xs font-medium">
           Preview (first 5 matching documents, nothing is written) {loading && <Spinner className="size-3" />}
         </div>

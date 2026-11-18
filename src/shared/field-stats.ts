@@ -1,7 +1,7 @@
 /**
  * Field statistics over a set of documents: every dotted path (into nested objects and objects
  * inside arrays, MongoDB style: "items.sku"), how many documents contain it, and its BSON types.
- * Used for table columns now and query autocomplete later.
+ * Used for table columns and query autocomplete (field names, types, and low-cardinality values).
  */
 import { bsonTypeOf, type BsonTypeTag } from './bson-types'
 
@@ -14,23 +14,33 @@ export interface FieldStat {
   /** count / total documents. */
   probability: number
   types: { type: BsonTypeTag; count: number }[]
+  /**
+   * Distinct string values, most frequent first, when the field has few of them in the sample
+   * (≤ `maxValues`). Only collected when `maxValues` is set. Used for value autocomplete.
+   */
+  values?: string[]
 }
 
 export interface FieldStatsOptions {
   maxDepth?: number
   /** Stop collecting new paths beyond this many (wide/dynamic-key collections). */
   maxPaths?: number
+  /** Collect distinct string values for fields with at most this many (0/undefined = off). */
+  maxValues?: number
 }
 
 interface Acc {
   order: number
   docs: number
   types: Map<BsonTypeTag, number>
+  /** Distinct string value → occurrences; null once there are too many. */
+  values: Map<string, number> | null
 }
 
 export function collectFieldStats(docs: unknown[], options: FieldStatsOptions = {}): FieldStat[] {
   const maxDepth = options.maxDepth ?? 4
   const maxPaths = options.maxPaths ?? 1000
+  const maxValues = options.maxValues ?? 0
   const acc = new Map<string, Acc>()
 
   for (const doc of docs) {
@@ -40,10 +50,25 @@ export function collectFieldStats(docs: unknown[], options: FieldStatsOptions = 
       let a = acc.get(path)
       if (!a) {
         if (acc.size >= maxPaths) return
-        a = { order: acc.size, docs: 0, types: new Map() }
+        a = { order: acc.size, docs: 0, types: new Map(), values: maxValues ? new Map() : null }
         acc.set(path, a)
       }
       a.types.set(tag, (a.types.get(tag) ?? 0) + 1)
+      // { tags: "red" } matches array elements too, so string elements count as values.
+      const strings =
+        typeof value === 'string'
+          ? [value]
+          : tag === 'array'
+            ? (value as unknown[]).filter((e) => typeof e === 'string')
+            : []
+      for (const s of strings) {
+        if (!a.values) break
+        if (s.length > 200) a.values = null
+        else {
+          a.values.set(s, (a.values.get(s) ?? 0) + 1)
+          if (a.values.size > maxValues) a.values = null
+        }
+      }
       if (!seen.has(path)) {
         seen.add(path)
         a.docs++
@@ -75,6 +100,13 @@ export function collectFieldStats(docs: unknown[], options: FieldStatsOptions = 
       probability: a.docs / total,
       types: [...a.types.entries()]
         .map(([type, count]) => ({ type, count }))
-        .sort((x, y) => y.count - x.count)
+        .sort((x, y) => y.count - x.count),
+      ...(a.values?.size
+        ? {
+            values: [...a.values.entries()]
+              .sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1))
+              .map(([v]) => v)
+          }
+        : {})
     }))
 }

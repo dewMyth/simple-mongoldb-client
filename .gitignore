@@ -8,3 +8,4 @@ playwright-report
 .DS_Store
 *.log
 bench-results.json
+.venv-codegen

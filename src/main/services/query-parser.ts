@@ -16,8 +16,10 @@ import {
   parseSort,
   toJSString
 } from 'mongodb-query-parser'
-import type { Document } from 'bson'
+import { EJSON, type Document } from 'bson'
 import type { QueryField, QueryFieldError, QueryText } from '@shared/query'
+import { stringifyCanonical, stringifyRelaxed } from '@shared/ejson'
+import { toShellString } from '@shared/shell-format'
 
 export type ObjectField = 'filter' | 'project' | 'sort' | 'collation'
 
@@ -57,12 +59,37 @@ function syntaxError(err: unknown): Omit<QueryFieldError, 'field'> {
   return { message }
 }
 
+/**
+ * Extended JSON wrapper keys. Text that is valid JSON and uses one of these is read as EJSON
+ * (canonical or relaxed), so `{ "_id": { "$oid": "…" } }` means an ObjectId, not a subdocument.
+ */
+const EJSON_WRAPPER =
+  /"\$(?:oid|date|numberLong|numberInt|numberDouble|numberDecimal|binary|uuid|timestamp|regularExpression|minKey|maxKey|symbol|code|scope|dbPointer|undefined)"\s*:/
+
+/** Parses EJSON text, or returns undefined if the text isn't EJSON (then it's shell syntax). */
+export function parseEJSONText(text: string): { value: unknown } | { error: string } | undefined {
+  if (!EJSON_WRAPPER.test(text)) return undefined
+  let json: unknown
+  try {
+    json = JSON.parse(text)
+  } catch {
+    return undefined // not JSON: shell syntax that happens to contain "$oid"
+  }
+  try {
+    return { value: EJSON.deserialize(json as Document, { relaxed: false }) }
+  } catch (err) {
+    return { error: `Invalid Extended JSON: ${(err as Error).message}` }
+  }
+}
+
 export function parseQueryField(field: ObjectField, text: string): FieldResult {
   const trimmed = text.trim()
   if (!trimmed) return { ok: true, value: field === 'filter' ? {} : undefined }
   let value: unknown
+  const ejson = parseEJSONText(trimmed)
+  if (ejson && 'error' in ejson) return { ok: false, error: { message: ejson.error } }
   try {
-    value = parsers[field](trimmed)
+    value = ejson ? ejson.value : parsers[field](trimmed)
   } catch (err) {
     return { ok: false, error: syntaxError(err) }
   }
@@ -157,10 +184,35 @@ export function formatQueryText(text: string, field: ObjectField = 'filter'): st
   return toJSString(r.value, 2) ?? null
 }
 
+export type ConvertTarget = 'shell' | 'canonical' | 'relaxed'
+
+/**
+ * Rewrites query text as shell syntax, canonical EJSON or relaxed EJSON. Short results stay on
+ * one line, longer ones are indented. Null if the text doesn't parse.
+ */
+export function convertQueryText(text: string, field: ObjectField, to: ConvertTarget): string | null {
+  if (!text.trim()) return ''
+  const r = parseQueryField(field, text)
+  if (!r.ok) return null
+  const write = (indent: number) =>
+    to === 'shell'
+      ? toShellString(r.value, indent)
+      : to === 'canonical'
+        ? stringifyCanonical(r.value, indent || undefined)
+        : stringifyRelaxed(r.value, indent || undefined)
+  const oneLine = write(0)
+  return oneLine.length <= 80 ? oneLine : write(2)
+}
+
 /** Parses any shell-syntax value (object or array), for document bodies and update specs. */
 export function parseShellValue(text: string): FieldResultPublic {
   const t = text.trim()
   if (!t) return { ok: false, error: { message: 'Nothing to parse' } }
+  const ejson = parseEJSONText(t)
+  if (ejson)
+    return 'error' in ejson
+      ? { ok: false, error: { message: ejson.error } }
+      : { ok: true, value: ejson.value }
   let value: unknown
   try {
     value = parseFilter(t)

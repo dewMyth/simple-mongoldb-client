@@ -261,11 +261,12 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - **Snippets library**: date range for today/last 7 days, `_id` from timestamp, regex contains (case-insensitive), etc.
 - **Format/prettify** and **convert** (shell syntax ↔ canonical EJSON ↔ relaxed JSON).
 - **Export query to code**: Node.js, Python (PyMongo), Java, C#, Go, and mongosh. Use `bson-transpilers` if it still fits, otherwise write templates.
+  - *Decision:* templates (src/shared/code-export.ts). bson-transpilers 3.3 has no UUID/BinData support, no mongosh output, and emits Go for the deprecated v1 driver.
 
 **Done when**
-- [ ] Typing `{ cus` in a collection with `customer.name` suggests `customer.name` with its type
-- [ ] Operator completions change correctly between `$match` and `$group`
-- [ ] Exported Node and Python code runs and returns the same count (integration test)
+- [x] Typing `{ cus` in a collection with `customer.name` suggests `customer.name` with its type
+- [x] Operator completions change correctly between `$match` and `$group`
+- [x] Exported Node and Python code runs and returns the same count (integration test)
 
 ---
 

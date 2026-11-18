@@ -29,6 +29,7 @@ import {
 import type { PermissionSnapshot } from './permissions'
 import type { FieldStat } from './field-stats'
 import type { InsertResult, ParseDocumentsResult, UpdatePreview, UpdateResult } from './documents'
+import { exportLanguages } from './code-export'
 
 /** Declares a channel: zod input schema + output type carried only at the type level. */
 function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
@@ -82,6 +83,21 @@ export const openFileSchema = z.object({
 const nsSchema = z.string().regex(/^[^.]+\..+$/, 'Namespace must be "db.collection"')
 const nsTarget = z.object({ connectionId: connId, ns: nsSchema })
 const objectQueryField = z.enum(['filter', 'project', 'sort', 'collation'])
+
+export const convertSchema = z.object({
+  field: objectQueryField,
+  text: z.string().max(1_000_000),
+  to: z.enum(['shell', 'canonical', 'relaxed'])
+})
+
+export const exportCodeSchema = z.object({
+  ns: nsSchema,
+  query: queryTextSchema,
+  language: z.enum(exportLanguages),
+  mode: z.enum(['find', 'count'])
+})
+
+export type ExportCodeResult = { ok: true; code: string } | { ok: false; errors: QueryFieldError[] }
 
 export const findSchema = z.object({
   connectionId: connId,
@@ -155,6 +171,10 @@ export const ipcContract = {
   'query:format': channel<z.ZodObject<{ field: typeof objectQueryField; text: z.ZodString }>, string | null>(
     z.object({ field: objectQueryField, text: z.string().max(1_000_000) })
   ),
+  /** Rewrites query text as shell syntax / canonical EJSON / relaxed EJSON. Null if it doesn't parse. */
+  'query:convert': channel<typeof convertSchema, string | null>(convertSchema),
+  /** The query as runnable driver code. Never includes the connection string. */
+  'query:exportCode': channel<typeof exportCodeSchema, ExportCodeResult>(exportCodeSchema),
   'query:find': channel<typeof findSchema, FindResult>(findSchema),
   'query:getMore': channel<z.ZodObject<{ cursorId: z.ZodString; count: z.ZodNumber }>, FindPage>(
     z.object({ cursorId: z.string().min(1), count: z.number().int().min(1).max(10_000) })
@@ -168,6 +188,7 @@ export const ipcContract = {
       ns: typeof nsSchema
       tabId: z.ZodOptional<z.ZodNullable<z.ZodString>>
       size: z.ZodOptional<z.ZodNumber>
+      maxValues: z.ZodOptional<z.ZodNumber>
     }>,
     { sampled: number; fields: FieldStat[] }
   >(
@@ -175,7 +196,8 @@ export const ipcContract = {
       connectionId: connId,
       ns: nsSchema,
       tabId: z.string().nullable().optional(),
-      size: z.number().int().min(1).max(10_000).optional()
+      size: z.number().int().min(1).max(10_000).optional(),
+      maxValues: z.number().int().min(1).max(200).optional()
     })
   ),
   /** Parse shell-syntax text into BSON documents (one or an array). */

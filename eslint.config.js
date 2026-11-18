@@ -5,7 +5,18 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import globals from 'globals'
 
 export default tseslint.config(
-  { ignores: ['out', 'dist', 'release', 'node_modules', 'coverage', 'playwright-report', 'test-results'] },
+  {
+    ignores: [
+      'out',
+      'dist',
+      'release',
+      'node_modules',
+      'coverage',
+      'playwright-report',
+      'test-results',
+      '.venv-codegen'
+    ]
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

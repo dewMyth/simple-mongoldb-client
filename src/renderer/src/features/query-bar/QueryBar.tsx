@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, History, Play, RotateCcw, Square, Star } from 'lucide-react'
+import { ChevronDown, Code2, History, MoreHorizontal, Play, RotateCcw, Square, Star } from 'lucide-react'
 import { emptyQueryText, isQueryEmpty, type QueryField, type QueryText } from '@shared/query'
 import { cn } from '@renderer/lib/utils'
 import { Field } from '../../components/form'
@@ -16,7 +16,12 @@ import {
 } from '../../components/ui/dropdown-menu'
 import { Dialog } from '../../components/Dialog'
 import { ipc } from '../../lib/ipc'
+import { getFields, refreshFields, type FieldSampleInfo } from '../../lib/field-cache'
 import { QueryEditor } from './QueryEditor'
+import { ExportCodeDialog } from './ExportCodeDialog'
+
+const OBJECT_FIELDS = ['filter', 'project', 'sort', 'collation'] as const
+type ObjectField = (typeof OBJECT_FIELDS)[number]
 
 const fieldLabel: Record<QueryField, string> = {
   filter: 'Filter',
@@ -56,10 +61,30 @@ export function QueryBar({
   fieldErrors: { field: QueryField; message: string; line?: number; column?: number }[]
 }) {
   const qc = useQueryClient()
+  const namespace = useMemo(() => ({ connectionId, ns }), [connectionId, ns])
   const [showOptions, setShowOptions] = useState(() =>
     (['project', 'sort', 'collation', 'hint', 'skip', 'limit', 'maxTimeMS'] as const).some((k) => query[k])
   )
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [toolError, setToolError] = useState<string | null>(null)
+  const [sample, setSample] = useState<FieldSampleInfo | null>(null)
+
+  /** Rewrites every non-empty object field; fields that don't parse are left as they are. */
+  const rewrite = async (fn: (field: ObjectField, text: string) => Promise<string | null>) => {
+    const next = { ...query }
+    const failed: string[] = []
+    for (const f of OBJECT_FIELDS) {
+      if (!query[f].trim()) continue
+      const out = await fn(f, query[f])
+      if (out === null) failed.push(fieldLabel[f])
+      else next[f] = out
+    }
+    onChange(next)
+    setToolError(failed.length ? `Couldn't convert ${failed.join(', ')}: fix the errors first.` : null)
+  }
+  const convert = (to: 'shell' | 'canonical' | 'relaxed') =>
+    void rewrite((field, text) => ipc('query:convert', { field, text, to }))
   const historyIndex = useRef(-1)
   const draftBeforeHistory = useRef<string>('')
 
@@ -136,6 +161,7 @@ export function QueryBar({
           handlers={handlers}
           externalError={errorFor('filter')}
           testId="filter-editor"
+          namespace={namespace}
           autoFocus
         />
         <div className="flex shrink-0 items-center gap-1.5">
@@ -223,6 +249,77 @@ export function QueryBar({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <DropdownMenu onOpenChange={(o) => o && void getFields(connectionId, ns).then(setSample)}>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" aria-label="More query actions" data-testid="query-tools">
+                <MoreHorizontal size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 text-xs">
+              <DropdownMenuItem
+                className="text-xs"
+                onSelect={() => void rewrite((field, text) => ipc('query:format', { field, text }))}
+                disabled={isQueryEmpty(query)}
+              >
+                Format
+                <span className="ml-auto text-muted-foreground">⌘⇧F</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                Convert to
+              </DropdownMenuLabel>
+              <DropdownMenuItem
+                className="text-xs"
+                onSelect={() => convert('shell')}
+                data-testid="convert-shell"
+              >
+                Shell syntax
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs"
+                onSelect={() => convert('canonical')}
+                data-testid="convert-canonical"
+              >
+                Canonical Extended JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex-col items-start gap-0 text-xs"
+                onSelect={() => convert('relaxed')}
+                data-testid="convert-relaxed"
+              >
+                Relaxed Extended JSON
+                <span className="text-[10px] text-muted-foreground">
+                  Numbers become plain JSON: types may change
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-xs"
+                // Opening a dialog from a menu item must wait for the menu to close.
+                onSelect={() => setTimeout(() => setExporting(true))}
+                data-testid="export-code-item"
+              >
+                <Code2 size={13} /> Export to code…
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex-col items-start gap-0 text-xs"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  setSample(null)
+                  void refreshFields(connectionId, ns).then(setSample)
+                }}
+                data-testid="refresh-fields"
+              >
+                Refresh field suggestions
+                <span className="text-[10px] text-muted-foreground">
+                  {sample
+                    ? `${sample.fields.length} fields from ${sample.sampled.toLocaleString()} sampled documents`
+                    : 'Sampling…'}
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             size="sm"
             variant="ghost"
@@ -273,6 +370,7 @@ export function QueryBar({
                 handlers={handlers}
                 externalError={errorFor(f)}
                 testId={`${f}-editor`}
+                namespace={namespace}
               />
             </OptionRow>
           ))}
@@ -303,6 +401,12 @@ export function QueryBar({
         </div>
       )}
 
+      {toolError && (
+        <div className="text-xs text-destructive" data-testid="query-tool-error">
+          {toolError}
+        </div>
+      )}
+      {exporting && <ExportCodeDialog ns={ns} query={query} onClose={() => setExporting(false)} />}
       {saving && <SaveQueryDialog ns={ns} query={query} onClose={() => setSaving(false)} />}
     </div>
   )

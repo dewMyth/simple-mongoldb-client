@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { monaco, SHELL_LANGUAGE } from '../lib/monaco'
+import { attachCompletion, completionEditorOptions, type CompletionTarget } from '../lib/autocomplete'
 import { useThemeStore } from '../stores/theme'
 
 type IEditor = Parameters<OnMount>[0]
@@ -23,7 +24,8 @@ export function CodeEditor({
   minLines = 6,
   maxHeight = 480,
   testId,
-  autoFocus = true
+  autoFocus = true,
+  completion
 }: {
   value: string
   onChange: (v: string) => void
@@ -34,6 +36,8 @@ export function CodeEditor({
   maxHeight?: number
   testId?: string
   autoFocus?: boolean
+  /** Context-aware completions and hover docs (mode + namespace for field names). */
+  completion?: CompletionTarget
 }) {
   const resolved = useThemeStore((s) => s.resolved)
   const editorRef = useRef<IEditor | null>(null)
@@ -41,6 +45,13 @@ export function CodeEditor({
   useEffect(() => {
     submitRef.current = onSubmit
   }, [onSubmit])
+
+  const completionRef = useRef(completion)
+  useEffect(() => {
+    completionRef.current = completion
+  }, [completion])
+  const detachRef = useRef<() => void>(() => {})
+  useEffect(() => () => detachRef.current(), [])
 
   const lines = Math.max(minLines, value.split('\n').length + 1)
   const height = Math.min(maxHeight, lines * 19 + 12)
@@ -67,6 +78,11 @@ export function CodeEditor({
 
   const onMount: OnMount = (editor) => {
     editorRef.current = editor
+    if (completionRef.current)
+      detachRef.current = attachCompletion(
+        editor.getModel(),
+        () => completionRef.current ?? { mode: 'document' }
+      )
     const { KeyMod, KeyCode } = monaco
     // addAction (not addCommand): addCommand keybindings are global across editors.
     editor.addAction({
@@ -102,8 +118,9 @@ export function CodeEditor({
           tabSize: 2,
           automaticLayout: true,
           fixedOverflowWidgets: true,
-          quickSuggestions: false,
-          wordBasedSuggestions: 'off',
+          ...(completion
+            ? completionEditorOptions
+            : { quickSuggestions: false, wordBasedSuggestions: 'off' }),
           renderLineHighlight: 'none',
           stickyScroll: { enabled: false },
           padding: { top: 6, bottom: 6 }

@@ -56,3 +56,15 @@
   (components/Menu.tsx does this for context menus).
 - Monaco in E2E: clear and wait for `.view-lines` to be empty before inserting text; submit handlers get the
   editor's live text (`onSubmit(text)`) because React state lags a keystroke.
+- Autocomplete: the engine is pure and shared (src/shared/autocomplete: `analyze` scans the cursor context,
+  `complete`/`hoverAt` resolve a scope per mode: filter/project/sort/collation/pipeline/update/document).
+  Monaco adapter: renderer lib/autocomplete.ts (`attachCompletion(model, getTarget)`); field samples
+  (1,000 docs, distinct strings ≤ 50 per field) are cached per namespace in lib/field-cache.ts.
+  Operator snippet templates escape `$` automatically via `toSnippet` (placeholders `$1`/`${1:x}` stay).
+- Query text may also be Extended JSON: the parser reads JSON containing EJSON wrapper keys (`$oid`,
+  `$numberLong`…) as EJSON (`parseEJSONText`), so converted queries still run.
+- Export to code lives in src/shared/code-export.ts; it never writes a connection string (always MONGODB_URI).
+  tests/integration/code-export.test.ts runs the Node and Python output; Python needs pymongo
+  (`python3 -m venv .venv-codegen && .venv-codegen/bin/pip install pymongo`, or set PYTHON), else skipped.
+- E2E: hover with a stepped `page.mouse.move` (Monaco ignores a single synthetic mousemove); reopen a Radix
+  menu only after the previous content unmounts (150 ms exit animation; a click during it closes the new one).
