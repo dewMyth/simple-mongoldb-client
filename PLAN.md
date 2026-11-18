@@ -134,10 +134,10 @@ tests/
 - Several connections can be open at once. Each gets its own `MongoClient`, keyed by connection id.
 
 **Done when**
-- [ ] Integration test connects to `mongodb-memory-server` (standalone and replica set) and lists dbs/collections
-- [ ] Saved credentials don't appear in plaintext anywhere on disk (test greps the store file)
-- [ ] An invalid host shows a readable error within the timeout (`serverSelectionTimeoutMS` configurable)
-- [ ] Two connections can be browsed side by side
+- [x] Integration test connects to `mongodb-memory-server` (standalone and replica set) and lists dbs/collections
+- [x] Saved credentials don't appear in plaintext anywhere on disk (test greps the store file)
+- [x] An invalid host shows a readable error within the timeout (`serverSelectionTimeoutMS` configurable)
+- [x] Two connections can be browsed side by side
 
 ---
 

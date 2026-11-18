@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { registerIpcHandlers } from './ipc'
 import { applyGlobalSecurity, hardenWebContents } from './security'
 import { settingsStore } from './services/settings-store'
+import { connections } from './services'
 
 const here = import.meta.dirname
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
@@ -46,6 +47,15 @@ void app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+let quitting = false
+app.on('before-quit', (event) => {
+  if (quitting) return
+  // Close MongoClients and SSH tunnels cleanly so server-side cursors and sessions are released.
+  event.preventDefault()
+  quitting = true
+  void connections.disconnectAll().finally(() => app.quit())
 })
 
 app.on('window-all-closed', () => {

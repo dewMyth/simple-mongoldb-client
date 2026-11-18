@@ -8,6 +8,14 @@
  * Adding a channel: add it here, register a handler in src/main/ipc, and write a test.
  */
 import { z } from 'zod'
+import {
+  connectionDraftSchema,
+  type ActiveConnection,
+  type CollectionInfo,
+  type DatabaseInfo,
+  type SavedConnection,
+  type ServerInfo
+} from './connection'
 
 /** Declares a channel: zod input schema + output type carried only at the type level. */
 function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
@@ -32,6 +40,32 @@ export interface Settings {
   theme: Theme
 }
 
+const connId = z.string().min(1)
+const dbName = z.string().min(1).max(64)
+const collName = z.string().min(1).max(255)
+
+export const createCollectionSchema = z.object({
+  connectionId: connId,
+  db: dbName,
+  name: collName,
+  capped: z
+    .object({ size: z.number().int().positive(), max: z.number().int().positive().optional() })
+    .optional(),
+  timeseries: z
+    .object({
+      timeField: z.string().min(1),
+      metaField: z.string().optional(),
+      granularity: z.enum(['seconds', 'minutes', 'hours']).optional()
+    })
+    .optional(),
+  clusteredIndex: z.boolean().optional()
+})
+
+export const openFileSchema = z.object({
+  title: z.string().optional(),
+  filters: z.array(z.object({ name: z.string(), extensions: z.array(z.string()) })).optional()
+})
+
 // ---------------------------------------------------------------- the contract
 
 export const ipcContract = {
@@ -39,7 +73,32 @@ export const ipcContract = {
   'app:openExternal': channel<z.ZodString, void>(z.string().url()),
 
   'settings:get': channel<z.ZodVoid, Settings>(z.void()),
-  'settings:setTheme': channel<typeof themeSchema, Settings>(themeSchema)
+  'settings:setTheme': channel<typeof themeSchema, Settings>(themeSchema),
+
+  'dialog:openFile': channel<typeof openFileSchema, string | null>(openFileSchema),
+
+  'connections:list': channel<z.ZodVoid, SavedConnection[]>(z.void()),
+  'connections:save': channel<typeof connectionDraftSchema, SavedConnection>(connectionDraftSchema),
+  'connections:delete': channel<typeof connId, void>(connId),
+  /** Test an unsaved draft (stored secrets are reused when the draft has an id). */
+  'connections:test': channel<typeof connectionDraftSchema, ServerInfo>(connectionDraftSchema),
+  'connections:connect': channel<typeof connId, ActiveConnection>(connId),
+  'connections:disconnect': channel<typeof connId, void>(connId),
+  'connections:active': channel<z.ZodVoid, ActiveConnection[]>(z.void()),
+
+  'db:listDatabases': channel<typeof connId, DatabaseInfo[]>(connId),
+  'db:listCollections': channel<
+    z.ZodObject<{ connectionId: typeof connId; db: typeof dbName }>,
+    CollectionInfo[]
+  >(z.object({ connectionId: connId, db: dbName })),
+  'db:createCollection': channel<typeof createCollectionSchema, void>(createCollectionSchema),
+  'db:dropCollection': channel<
+    z.ZodObject<{ connectionId: typeof connId; db: typeof dbName; name: typeof collName }>,
+    void
+  >(z.object({ connectionId: connId, db: dbName, name: collName })),
+  'db:dropDatabase': channel<z.ZodObject<{ connectionId: typeof connId; db: typeof dbName }>, void>(
+    z.object({ connectionId: connId, db: dbName })
+  )
 } as const
 
 export type IpcContract = typeof ipcContract
@@ -83,6 +142,7 @@ export class IpcError extends Error {
 /** Push events from main → renderer (subscriptions via window.api.on). */
 export interface IpcEvents {
   'settings:changed': Settings
+  'connections:activeChanged': ActiveConnection[]
 }
 export type EventName = keyof IpcEvents
-export const ipcEventNames: EventName[] = ['settings:changed']
+export const ipcEventNames: EventName[] = ['settings:changed', 'connections:activeChanged']

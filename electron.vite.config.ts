@@ -27,7 +27,11 @@ export default defineConfig({
   },
   renderer: {
     resolve: {
-      alias: { ...alias, '@renderer': resolve(__dirname, 'src/renderer/src') }
+      alias: {
+        ...alias,
+        '@renderer': resolve(__dirname, 'src/renderer/src'),
+        'whatwg-url': resolve(__dirname, 'src/renderer/src/lib/whatwg-url-shim.ts')
+      }
     },
     plugins: [react(), tailwindcss()]
   }
