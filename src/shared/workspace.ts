@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { queryTextSchema } from './query'
 import { pipelineStateSchema } from './pipeline'
+import { explainSourceSchema } from './explain'
 
 export const tabTypes = [
   'documents',
@@ -38,7 +39,9 @@ export const persistedTabSchema = z.object({
   /** Index of the first visible document when the tab was last shown. */
   scrollAnchor: z.number().int().min(0).max(1_000_000),
   /** Aggregation tabs: the builder's stages, mode and options. */
-  pipeline: pipelineStateSchema.optional()
+  pipeline: pipelineStateSchema.optional(),
+  /** Explain tabs: what to explain; `at` changes when it's requested again (re-run). */
+  explain: z.object({ source: explainSourceSchema, at: z.number() }).optional()
 })
 export type PersistedTab = z.infer<typeof persistedTabSchema>
 

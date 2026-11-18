@@ -28,6 +28,8 @@ import {
   type RecentQuery
 } from './query'
 import { workspaceSchema, type Workspace } from './workspace'
+import { createIndexSchema, type IndexBuild, type IndexInfo } from './indexes'
+import { explainSourceSchema, type ExplainResult } from './explain'
 import {
   pipelineOptionsSchema,
   pipelineStageSchema,
@@ -134,6 +136,15 @@ export const pipelineSaveSchema = z.object({
   ns: nsSchema,
   stages: z.array(pipelineStageSchema.omit({ id: true })).max(500),
   options: pipelineOptionsSchema
+})
+
+const indexTarget = z.object({ connectionId: connId, ns: nsSchema })
+export const indexCreateSchema = indexTarget.extend({ form: createIndexSchema })
+export const indexNameSchema = indexTarget.extend({ name: z.string().min(1).max(400) })
+export const indexHiddenSchema = indexNameSchema.extend({ hidden: z.boolean() })
+export const explainRunSchema = indexTarget.extend({
+  tabId: z.string().nullable().optional(),
+  source: explainSourceSchema
 })
 
 export type ExportCodeResult = { ok: true; code: string } | { ok: false; errors: QueryFieldError[] }
@@ -265,6 +276,15 @@ export const ipcContract = {
   'pipelines:list': channel<typeof nsSchema, SavedPipeline[]>(nsSchema),
   'pipelines:save': channel<typeof pipelineSaveSchema, SavedPipeline>(pipelineSaveSchema),
   'pipelines:delete': channel<z.ZodString, void>(z.string().min(1)),
+  'indexes:list': channel<typeof indexTarget, IndexInfo[]>(indexTarget),
+  /** Index builds in progress on the collection (from $currentOp; empty without access). */
+  'indexes:builds': channel<typeof indexTarget, IndexBuild[]>(indexTarget),
+  /** Creates an index (returns its name once built). */
+  'indexes:create': channel<typeof indexCreateSchema, string>(indexCreateSchema),
+  'indexes:drop': channel<typeof indexNameSchema, void>(indexNameSchema),
+  'indexes:setHidden': channel<typeof indexHiddenSchema, void>(indexHiddenSchema),
+  /** explain("executionStats") for a find or a pipeline, analysed (summary, tree, hints). */
+  'explain:run': channel<typeof explainRunSchema, ExplainResult>(explainRunSchema),
   'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
   /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
   'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),

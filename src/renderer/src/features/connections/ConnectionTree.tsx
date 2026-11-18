@@ -10,6 +10,7 @@ import { ipc } from '../../lib/ipc'
 import { formatBytes, formatCount } from '../../lib/format'
 import { useTabsStore } from '../../stores/tabs'
 import { openAggregation } from '../aggregation/open'
+import { openIndexes } from '../indexes/open'
 import { colorHex } from './colors'
 import { ConnectionDialog } from './ConnectionDialog'
 import { CreateCollectionDialog } from './CreateCollectionDialog'
@@ -484,6 +485,7 @@ function CollectionNode({
     { label: 'Open', onSelect: () => open(false) },
     { label: 'Open in new tab', onSelect: () => open(true) },
     { label: 'Open aggregation', onSelect: () => openAggregation(connId, ns) },
+    { label: 'Indexes', onSelect: () => openIndexes(connId, ns) },
     {
       label: coll.type === 'view' ? 'Drop view…' : 'Drop collection…',
       danger: true,

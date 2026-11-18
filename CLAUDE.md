@@ -83,3 +83,11 @@
   "<tabId>#preview"; `cancelForTab(tabId)` also kills "<tabId>#…" sub-owners.
 - E2E: put multi-line text into Monaco by pasting (Electron clipboard + Cmd/Ctrl+V); typing it trips
   bracket auto-closing. `.view-lines` innerText isn't in line order for multi-line content.
+- Never put a Monaco editor inside a <label> (e.g. `<Field>` without `editor`): clicks get forwarded to
+  Monaco's hidden IME textarea and typing is lost.
+- Explain: src/shared/explain.ts analyses explain("executionStats") (classic executionStages with per-stage
+  counts; SBE/explainVersion 2 uses queryPlanner.winningPlan.queryPlan; aggregate `$cursor` + later
+  stages). tests/fixtures/explain-8.2.json holds real server output: re-capture it when upgrading MongoDB.
+  Index suggestions follow ESR (equality, sort, range). Explaining a pipeline drops a final $out/$merge.
+- Indexes: main's IndexService; size/usage/multikey/builds are best effort (null without privileges).
+  Multikey comes from a hinted queryPlanner explain (isMultiKey on the IXSCAN).

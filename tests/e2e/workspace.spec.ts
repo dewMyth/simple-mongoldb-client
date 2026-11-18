@@ -54,13 +54,18 @@ async function openColl(page: Page, conn: number, coll: string) {
   await page.getByTestId(`coll-shop.${coll}`).nth(conn).click()
 }
 
+/**
+ * The filter editor's text, whitespace removed. Narrow panes wrap long queries and Monaco
+ * recycles line elements (DOM order isn't line order), so compare compactly and sorted.
+ */
+const compact = (t: string) => [...t.replace(/[\s\u00a0·]+/g, '')].sort().join('')
 const filterText = (page: Page, pane = 'primary') =>
   page
     .getByTestId(`pane-${pane}`)
     .getByTestId('filter-editor')
     .locator('.view-lines')
     .innerText()
-    .then((t) => t.replace(/\u00a0/g, ' '))
+    .then(compact)
 
 async function setFilter(page: Page, text: string) {
   await page.getByTestId('pane-primary').getByTestId('filter-editor').locator('.view-lines').click()
@@ -114,12 +119,12 @@ test('Done when: restart restores all tabs with their queries (not re-run), pins
 
     // Restored queries are not re-run.
     await expect(page.getByTestId('pane-secondary').getByTestId('restored-hint')).toBeVisible()
-    await expect.poll(() => filterText(page, 'secondary')).toContain('{ i: { $lt: 5 } }')
+    await expect.poll(() => filterText(page, 'secondary')).toBe(compact('{ i: { $lt: 5 } }'))
 
     // The secondary pane has focus (Connect was clicked there), so the tab opens in it.
     await page.getByTestId('tab-shop.c1').click()
     await expect(page.getByTestId('tab-shop.c1')).toHaveAttribute('data-pane', 'secondary')
-    await expect.poll(() => filterText(page, 'secondary')).toContain('{ status: "paid" }')
+    await expect.poll(() => filterText(page, 'secondary')).toBe(compact('{ status: "paid" }'))
     const secondary = page.getByTestId('pane-secondary')
     await expect(secondary.getByTestId('restored-hint')).toBeVisible()
     await secondary.getByTestId('run-query').click()
@@ -220,6 +225,8 @@ test('production connections: red border and a confirmation before every write',
       await page.keyboard.press('Backspace')
       await expect(ed).toHaveText('')
       await page.keyboard.insertText('{ prodTest: 1 }')
+      // Under load the editor can lag a keystroke behind: submit once it shows the text.
+      await expect(ed).toHaveText(/prodTest/)
       await page.getByTestId('insert-submit').click()
     }
 

@@ -4,8 +4,21 @@
  */
 import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Columns2, CopyPlus, History, Info, Rows2, RotateCcw, Table2, Workflow, X } from 'lucide-react'
+import {
+  Columns2,
+  CopyPlus,
+  Gauge,
+  History,
+  Info,
+  KeyRound,
+  RotateCcw,
+  Rows2,
+  Table2,
+  Workflow,
+  X
+} from 'lucide-react'
 import { openAggregation } from '../features/aggregation/open'
+import { openExplain, openIndexes } from '../features/indexes/open'
 import type { QueryText } from '@shared/query'
 import {
   CommandDialog,
@@ -182,6 +195,27 @@ export function CommandPalette() {
                   )}
                 >
                   <Workflow /> Open aggregation for {currentTab.ns}
+                </CommandItem>
+              )}
+              {currentTab?.ns && (
+                <CommandItem
+                  value="command indexes"
+                  onSelect={act(() => openIndexes(currentTab.connectionId, currentTab.ns!))}
+                >
+                  <KeyRound /> Indexes of {currentTab.ns}
+                </CommandItem>
+              )}
+              {currentTab?.ns && currentTab.type === 'documents' && (
+                <CommandItem
+                  value="command explain query"
+                  onSelect={act(() =>
+                    openExplain(currentTab.connectionId, currentTab.ns!, {
+                      kind: 'find',
+                      query: currentTab.query
+                    })
+                  )}
+                >
+                  <Gauge /> Explain the current query
                 </CommandItem>
               )}
               <CommandItem value="command duplicate tab" onSelect={act(() => store().duplicate(current))}>

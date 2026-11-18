@@ -119,11 +119,14 @@ export function QueryEditor({
     const mode = completionMode[field]
     if (mode)
       detachRef.current = attachCompletion(editor.getModel(), () => ({ mode, ...namespaceRef.current }))
+    // Size to the rendered (wrapped) lines, not model lines: a narrow pane wraps long queries and
+    // a model-line height would clip the wrapped part.
     const updateHeight = () => {
-      const lines = Math.min(MAX_LINES, Math.max(1, editor.getModel()?.getLineCount() ?? 1))
+      const visual = Math.round(editor.getContentHeight() / LINE_HEIGHT)
+      const lines = Math.min(MAX_LINES, Math.max(1, visual))
       setHeight(lines * LINE_HEIGHT + 10)
     }
-    editor.onDidChangeModelContent(updateHeight)
+    editor.onDidContentSizeChange(updateHeight)
     editor.onDidFocusEditorText(() => setFocused(true))
     editor.onDidBlurEditorText(() => setFocused(false))
     updateHeight()

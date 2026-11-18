@@ -4,7 +4,7 @@
  */
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bookmark, Code2, Eye, Play, Plus, RefreshCw, Settings2, Square, Trash2 } from 'lucide-react'
+import { Bookmark, Code2, Eye, Gauge, Play, Plus, RefreshCw, Settings2, Square, Trash2 } from 'lucide-react'
 import {
   isWriteStage,
   newPipelineState,
@@ -43,6 +43,7 @@ import { ErrorBox, Field } from '../../components/form'
 import { ExportCodeDialog } from '../query-bar/ExportCodeDialog'
 import { useActiveConnections, keys } from '../connections/queries'
 import { useCan } from '../permissions/queries'
+import { openExplain } from '../indexes/open'
 import { PreviewPane, StageCard, StageOperatorList } from './StageCard'
 import { usePreviews } from './use-previews'
 
@@ -258,6 +259,23 @@ export function AggregationTab({ tab }: { tab: Tab }) {
           update={update}
           onSave={() => setTimeout(() => setDialog('save'))}
         />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            runnable.ok &&
+            openExplain(tab.connectionId, ns, {
+              kind: 'aggregate',
+              stages: runnable.stages,
+              options: state.options
+            })
+          }
+          disabled={!runnable.ok}
+          title="Explain the pipeline (a final $out/$merge is left out)"
+          data-testid="explain-pipeline"
+        >
+          <Gauge /> Explain
+        </Button>
         <Button
           size="sm"
           variant="ghost"

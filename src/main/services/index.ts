@@ -3,6 +3,8 @@ import { safeStorage } from 'electron'
 import type { Workspace } from '@shared/workspace'
 import { WorkspaceService } from './workspace-service'
 import { AggregationService } from './aggregation-service'
+import { IndexService } from './index-service'
+import { ExplainService } from './explain-service'
 import { PipelineLibrary } from './pipeline-library'
 import type { SavedPipeline } from '@shared/pipeline'
 import Store from 'electron-store'
@@ -70,3 +72,5 @@ export const pipelineLibrary = new PipelineLibrary({
   get: () => pipelineStore.get('pipelines'),
   set: (p) => pipelineStore.set('pipelines', p)
 })
+export const indexes = new IndexService(connections)
+export const explains = new ExplainService(connections, cursors)

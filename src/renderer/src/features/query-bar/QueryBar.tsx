@@ -1,6 +1,17 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Code2, History, MoreHorizontal, Play, RotateCcw, Square, Star } from 'lucide-react'
+import {
+  ChevronDown,
+  Code2,
+  Gauge,
+  History,
+  MoreHorizontal,
+  Play,
+  RotateCcw,
+  Square,
+  Star
+} from 'lucide-react'
+import { openExplain } from '../indexes/open'
 import { emptyQueryText, isQueryEmpty, type QueryField, type QueryText } from '@shared/query'
 import { cn } from '@renderer/lib/utils'
 import { Field } from '../../components/form'
@@ -337,6 +348,15 @@ export function QueryBar({
             disabled={isQueryEmpty(query)}
           >
             <RotateCcw size={13} />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openExplain(connectionId, ns, { kind: 'find', query })}
+            title="Explain this query (execution plan, index use)"
+            data-testid="explain-query"
+          >
+            <Gauge size={12} /> Explain
           </Button>
           {running ? (
             <Button size="sm" variant="outline" onClick={onCancel} data-testid="cancel-query">

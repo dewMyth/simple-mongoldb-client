@@ -16,7 +16,7 @@ export interface Tab extends PersistedTab {
 }
 
 export type NewTab = Pick<Tab, 'type' | 'connectionId' | 'ns' | 'title'> &
-  Partial<Pick<Tab, 'query' | 'viewMode' | 'autoRun' | 'pipeline'>>
+  Partial<Pick<Tab, 'query' | 'viewMode' | 'autoRun' | 'pipeline' | 'explain'>>
 
 export interface Split {
   /** The tab shown in the secondary (right/bottom) pane. */
@@ -64,6 +64,8 @@ interface TabsState {
   setViewMode: (id: string, viewMode: ViewMode) => void
   setScrollAnchor: (id: string, index: number) => void
   setPipeline: (id: string, pipeline: PipelineState) => void
+  /** Updates a tab's fields (explain source, auto-run…). */
+  patch: (id: string, patch: Partial<Pick<Tab, 'explain' | 'autoRun' | 'query'>>) => void
   hydrate: (ws: Workspace) => void
 }
 
@@ -199,8 +201,11 @@ export const useTabsStore = create<TabsState>((set, get) => {
       const [last, ...rest] = get().closed
       if (!last) return null
       set({ closed: rest })
-      const { type, connectionId, ns, title, query, viewMode, pipeline } = last
-      return get().open({ type, connectionId, ns, title, query, viewMode, pipeline }, { newTab: true })
+      const { type, connectionId, ns, title, query, viewMode, pipeline, explain } = last
+      return get().open(
+        { type, connectionId, ns, title, query, viewMode, pipeline, explain },
+        { newTab: true }
+      )
     },
 
     duplicate(id) {
@@ -274,6 +279,10 @@ export const useTabsStore = create<TabsState>((set, get) => {
       set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, pipeline } : t)) })
     },
 
+    patch(id, patch) {
+      set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)) })
+    },
+
     hydrate(ws) {
       set({
         tabs: ordered(ws.tabs.map((t) => ({ ...t, autoRun: false }))),
@@ -305,7 +314,8 @@ export function toWorkspace(s: Pick<TabsState, 'tabs' | 'activeId' | 'split'>): 
       viewMode: t.viewMode,
       pinned: t.pinned,
       scrollAnchor: t.scrollAnchor,
-      ...(t.pipeline ? { pipeline: t.pipeline } : {})
+      ...(t.pipeline ? { pipeline: t.pipeline } : {}),
+      ...(t.explain ? { explain: t.explain } : {})
     })),
     activeId: s.activeId,
     split: s.split

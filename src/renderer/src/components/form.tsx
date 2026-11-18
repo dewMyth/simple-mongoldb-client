@@ -12,22 +12,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 export { Spinner } from './ui/spinner'
 
-/** Label + control + hint/error, stacked. */
+/**
+ * Label + control + hint/error, stacked. Pass `editor` when the control is a Monaco editor: a
+ * <label> would forward clicks to Monaco's hidden IME textarea, which then swallows typing.
+ */
 export function Field({
   label,
   hint,
   error,
   children,
-  className
+  className,
+  editor
 }: {
   label: ReactNode
   hint?: ReactNode
   error?: string | null
   children: ReactNode
   className?: string
+  editor?: boolean
 }) {
+  const Root = editor ? 'div' : 'label'
   return (
-    <label className={cn('flex flex-col gap-1.5', className)}>
+    <Root className={cn('flex flex-col gap-1.5', className)} role={editor ? 'group' : undefined}>
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
       {error ? (
@@ -35,7 +41,7 @@ export function Field({
       ) : hint ? (
         <span className="text-[11px] text-muted-foreground">{hint}</span>
       ) : null}
-    </label>
+    </Root>
   )
 }
 

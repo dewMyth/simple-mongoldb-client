@@ -12,6 +12,7 @@ import {
   ListTree,
   MoreHorizontal,
   Plus,
+  KeyRound,
   Sheet,
   Workflow
 } from 'lucide-react'
@@ -47,6 +48,7 @@ import { EMPTY_INSERT, InsertDialog } from './editing/InsertDialog'
 import { BulkDeleteDialog, BulkUpdateDialog } from './editing/BulkDialogs'
 import { useWriteCheck } from './editing/use-write-check'
 import { openAggregation } from '../aggregation/open'
+import { openIndexes } from '../indexes/open'
 
 /** The document being edited, tied to the page request it belongs to. */
 interface Editing {
@@ -150,6 +152,7 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
           onExpand={(mode) => setExpand((e) => ({ epoch: e.epoch + 1, mode }))}
           onInsert={() => setInserting(EMPTY_INSERT)}
           onAggregate={() => openAggregation(tab.connectionId, ns, tab.query.filter)}
+          onIndexes={() => openIndexes(tab.connectionId, ns)}
           onBulk={setBulk}
         />
         <ResultsList tabId={tab.id} viewMode={tab.viewMode} expand={expand} {...editingProps} />
@@ -186,6 +189,7 @@ function ResultsHeader({
   onExpand,
   onInsert,
   onAggregate,
+  onIndexes,
   onBulk
 }: {
   tabId: string
@@ -195,6 +199,7 @@ function ResultsHeader({
   onExpand: (mode: ExpandMode) => void
   onInsert: () => void
   onAggregate: () => void
+  onIndexes: () => void
   onBulk: (kind: 'update' | 'delete') => void
 }) {
   const r = useResultsStore((s) => s.byTab[tabId])
@@ -254,6 +259,16 @@ function ResultsHeader({
           data-testid="open-aggregation"
         >
           <Workflow /> Aggregate
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6"
+          title="Indexes of this collection"
+          onClick={onIndexes}
+          data-testid="open-indexes"
+        >
+          <KeyRound /> Indexes
         </Button>
         <Button
           variant="outline"

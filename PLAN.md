@@ -320,8 +320,8 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - Simple hints: COLLSCAN on a large collection, in-memory SORT, and a high examined/returned ratio each produce a suggested index you can create in one click.
 
 **Done when**
-- [ ] Explain on an unindexed filter shows COLLSCAN and suggests an index; creating it and re-running shows IXSCAN
-- [ ] Index list matches `db.coll.getIndexes()` for all index types in the fixture
+- [x] Explain on an unindexed filter shows COLLSCAN and suggests an index; creating it and re-running shows IXSCAN
+- [x] Index list matches `db.coll.getIndexes()` for all index types in the fixture
 
 ---
 

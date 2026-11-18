@@ -12,6 +12,9 @@ export const WRITE_CHANNELS = new Set<Channel>([
   'db:dropCollection',
   'db:dropDatabase',
   'agg:createView',
+  'indexes:create',
+  'indexes:drop',
+  'indexes:setHidden',
   // Only writes when the pipeline ends in $out/$merge (the guard checks).
   'agg:run'
 ])

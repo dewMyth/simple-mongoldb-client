@@ -141,7 +141,13 @@ export async function killServerOps(client: MongoClient, comment: string): Promi
       .aggregate<{ opid: unknown }>([
         { $currentOp: { allUsers: false, idleConnections: false, localOps: true } },
         {
-          $match: { $or: [{ 'command.comment': comment }, { 'cursor.originatingCommand.comment': comment }] }
+          $match: {
+            $or: [
+              { 'command.comment': comment },
+              { 'command.explain.comment': comment },
+              { 'cursor.originatingCommand.comment': comment }
+            ]
+          }
         },
         { $project: { opid: 1 } }
       ])

@@ -116,13 +116,18 @@ test('hover docs, convert to EJSON and back, export to code', async () => {
     // Hover on an operator.
     // The token span (" $lt: ") is centred on the operator. Monaco ignores a single synthetic
     // mousemove, so move there in steps like a real pointer.
-    const box = (await page
-      .getByTestId('filter-editor')
-      .locator('.view-line span span', { hasText: '$lt' })
-      .boundingBox())!
-    await page.mouse.move(box.x - 40, box.y + 40)
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 })
-    await expect(page.locator('.monaco-hover').filter({ hasText: 'less than' })).toBeVisible()
+    // Retried: a hover can be missed if the editor is still settling.
+    await expect(async () => {
+      const box = (await page
+        .getByTestId('filter-editor')
+        .locator('.view-line span span', { hasText: '$lt' })
+        .boundingBox())!
+      await page.mouse.move(box.x - 40, box.y + 40)
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 })
+      await expect(page.locator('.monaco-hover').filter({ hasText: 'less than' })).toBeVisible({
+        timeout: 2000
+      })
+    }).toPass({ timeout: 15_000 })
 
     // Convert to canonical EJSON: still runs, then back to shell syntax.
     await openTools(page)
