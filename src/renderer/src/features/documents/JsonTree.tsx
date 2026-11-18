@@ -6,7 +6,7 @@
  */
 import { memo, useState, type ReactNode } from 'react'
 import type { Document } from 'bson'
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy } from 'lucide-react'
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Route } from 'lucide-react'
 import {
   bsonTypeLabel,
   bsonTypeOf,
@@ -15,45 +15,16 @@ import {
   isContainer,
   type BsonTypeTag
 } from '@shared/bson-types'
-import { stringifyCanonical } from '@shared/ejson'
 import { toShellString } from '@shared/shell-format'
 import { cn } from '@renderer/lib/utils'
+import { copyText, typeColor } from './bson-style'
+import { CopyMenu } from './JsonView'
 import { Button } from '../../components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '../../components/ui/dropdown-menu'
 
 /** Children rendered per container before a "show more" control. */
 const PAGE = 50
 /** Strings longer than this are truncated with an expand control. */
 const MAX_STRING = 300
-
-const typeColor: Record<BsonTypeTag, string> = {
-  string: 'text-json-string',
-  int32: 'text-json-number',
-  int64: 'text-json-int64',
-  double: 'text-json-double',
-  decimal128: 'text-json-decimal',
-  boolean: 'text-json-boolean',
-  date: 'text-json-date',
-  objectId: 'text-json-objectid',
-  null: 'text-json-null italic',
-  undefined: 'text-json-null italic',
-  binary: 'text-json-binary',
-  uuid: 'text-json-binary',
-  timestamp: 'text-json-special',
-  regex: 'text-json-regex',
-  minKey: 'text-json-special',
-  maxKey: 'text-json-special',
-  code: 'text-json-special',
-  symbol: 'text-json-special',
-  dbref: 'text-json-special',
-  object: 'text-json-punct',
-  array: 'text-json-punct'
-}
 
 export type ExpandMode = 'default' | 'all'
 
@@ -84,10 +55,6 @@ function setDocMode(doc: Document, mode: ExpandMode) {
   if (!s) return
   s.mode = mode
   s.overrides.clear()
-}
-
-function copy(text: string) {
-  void navigator.clipboard.writeText(text)
 }
 
 function childEntries(value: unknown): [string, unknown][] {
@@ -137,21 +104,7 @@ export const JsonTree = memo(function JsonTree({
         >
           {state.mode === 'all' ? <ChevronsDownUp /> : <ChevronsUpDown />}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Copy document">
-              <Copy />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="text-xs">
-            <DropdownMenuItem onSelect={() => copy(toShellString(doc))}>
-              Copy as shell syntax
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => copy(stringifyCanonical(doc, 2))}>
-              Copy as canonical EJSON
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <CopyMenu doc={doc} />
       </div>
       {childEntries(doc).map(([k, v]) => (
         <Node
@@ -294,16 +247,30 @@ function Row({
       </span>
       <span className="flex min-w-0 flex-wrap items-start gap-x-1.5">{children}</span>
       <span className="absolute top-0 right-2 hidden items-center gap-1 group-hover/row:flex">
-        <span className="rounded bg-muted px-1 font-sans text-[10px] text-muted-foreground">
+        <span
+          className="rounded bg-muted px-1 font-sans text-[10px] text-muted-foreground"
+          data-testid="type-badge"
+        >
           {bsonTypeLabel[tag]}
         </span>
+        <button
+          type="button"
+          title="Copy field path"
+          className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation()
+            copyText(path)
+          }}
+        >
+          <Route className="size-3" />
+        </button>
         <button
           type="button"
           title="Copy value"
           className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation()
-            copy(isContainer(tag) ? toShellString(value) : displayScalar(value, tag))
+            copyText(isContainer(tag) ? toShellString(value) : displayScalar(value, tag))
           }}
         >
           <Copy className="size-3" />
@@ -316,7 +283,7 @@ function Row({
 function ScalarValue({ value, tag }: { value: unknown; tag: BsonTypeTag }) {
   const [full, setFull] = useState(false)
   const text = displayScalar(value, tag)
-  const long = tag === 'string' && text.length > MAX_STRING
+  const long = (tag === 'string' || tag === 'binary') && text.length > MAX_STRING
   return (
     <span
       className={cn('selectable min-w-0 break-all', typeColor[tag])}
@@ -333,7 +300,7 @@ function ScalarValue({ value, tag }: { value: unknown; tag: BsonTypeTag }) {
             setFull(!full)
           }}
         >
-          {full ? 'show less' : `show all ${(value as string).length.toLocaleString()} chars`}
+          {full ? 'show less' : `show all ${text.length.toLocaleString()} chars`}
         </button>
       )}
     </span>

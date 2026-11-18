@@ -1,5 +1,5 @@
 import { handle } from './router'
-import { cursors, history, permissions, queries } from '../services'
+import { cursors, history, permissions, queries, schemas } from '../services'
 import { isUnauthorized } from '../services/permission-service'
 
 /**
@@ -24,6 +24,9 @@ export function registerQueryHandlers(): void {
   handle('query:find', (input) => learnFind(input.connectionId, input.ns, () => queries.find(input)))
   handle('query:getMore', ({ cursorId, count }) => queries.getMore(cursorId, count))
   handle('query:count', (input) => learnFind(input.connectionId, input.ns, () => queries.count(input)))
+  handle('schema:sampleFields', (input) =>
+    learnFind(input.connectionId, input.ns, () => schemas.sampleFields(input))
+  )
   handle('ops:cancel', (id) => cursors.cancel(id))
   handle('ops:cancelForTab', (tabId) => cursors.cancelForTab(tabId))
 

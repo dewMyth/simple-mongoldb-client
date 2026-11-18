@@ -7,6 +7,7 @@ import { CursorRegistry } from './cursor-registry'
 import { PermissionService } from './permission-service'
 import { HistoryService, type HistoryData } from './history-service'
 import { QueryService } from './query-service'
+import { SchemaService } from './schema-service'
 import { StorageService, type SecretCipher, type StoredConnection } from './storage-service'
 
 const safeStorageCipher: SecretCipher = {
@@ -32,6 +33,7 @@ export const databases = new DatabaseService(connections)
 export const permissions = new PermissionService()
 export const cursors = new CursorRegistry()
 export const queries = new QueryService(connections, cursors)
+export const schemas = new SchemaService(connections, cursors)
 
 // Namespaces contain dots, so everything lives under one key (no dot-path access).
 const historyStore = new Store<{ data: HistoryData }>({

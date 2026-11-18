@@ -89,7 +89,7 @@ test('tree view: types, colours, expand/collapse, copy, text view', async () => 
     await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe('10.50')
 
     // Text view shows shell syntax with explicit types.
-    await page.getByTestId('view-text').click()
+    await page.getByTestId('view-json').click()
     await expect(page.getByTestId('doc').first()).toContainText('qty: NumberLong("9007199254740993")')
     await expect(page.getByTestId('doc').first()).toContainText('ratio: Double(10)')
     await page.getByTestId('view-tree').click()

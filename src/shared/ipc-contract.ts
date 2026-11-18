@@ -27,6 +27,7 @@ import {
   type QueryFieldError
 } from './query'
 import type { PermissionSnapshot } from './permissions'
+import type { FieldStat } from './field-stats'
 
 /** Declares a channel: zod input schema + output type carried only at the type level. */
 function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
@@ -144,6 +145,23 @@ export const ipcContract = {
   ),
   'query:count': channel<typeof findSchema, CountResult>(findSchema),
   /** Cancels a cursor/operation by id. Returns false if it had already finished. */
+  /** $sample the collection and summarise field paths/types (table columns, autocomplete). */
+  'schema:sampleFields': channel<
+    z.ZodObject<{
+      connectionId: typeof connId
+      ns: typeof nsSchema
+      tabId: z.ZodOptional<z.ZodNullable<z.ZodString>>
+      size: z.ZodOptional<z.ZodNumber>
+    }>,
+    { sampled: number; fields: FieldStat[] }
+  >(
+    z.object({
+      connectionId: connId,
+      ns: nsSchema,
+      tabId: z.string().nullable().optional(),
+      size: z.number().int().min(1).max(10_000).optional()
+    })
+  ),
   'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
   /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
   'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),

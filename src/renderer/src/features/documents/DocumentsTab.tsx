@@ -8,11 +8,11 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronsUpDown,
-  ListTree
+  ListTree,
+  Sheet
 } from 'lucide-react'
 import { PAGE_SIZE, resultTotal } from '@shared/query'
 import { cn } from '@renderer/lib/utils'
-import { toShellString } from '@shared/shell-format'
 import type { Tab, ViewMode } from '../../stores/tabs'
 import { useTabsStore } from '../../stores/tabs'
 import { ErrorBox, Spinner } from '../../components/form'
@@ -22,6 +22,8 @@ import { Input } from '../../components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
 import { useResultsStore, type TabResults } from './results-store'
 import { JsonTree, type ExpandMode } from './JsonTree'
+import { JsonView } from './JsonView'
+import { TableView } from './TableView'
 import { PermissionsPanel } from '../permissions/PermissionsPanel'
 
 interface ExpandRequest {
@@ -175,13 +177,22 @@ function ResultsHeader({
             <ListTree />
           </ToggleGroupItem>
           <ToggleGroupItem
-            value="text"
-            aria-label="Text view"
-            title="Text view (shell syntax)"
+            value="json"
+            aria-label="JSON view"
+            title="JSON view (shell syntax)"
             className="h-6 px-2"
-            data-testid="view-text"
+            data-testid="view-json"
           >
             <Braces />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="table"
+            aria-label="Table view"
+            title="Table view"
+            className="h-6 px-2"
+            data-testid="view-table"
+          >
+            <Sheet />
           </ToggleGroupItem>
         </ToggleGroup>
       </span>
@@ -319,13 +330,25 @@ function ResultsList({
     )
   }
 
+  const loading = r.status === 'running' && docs.length > 0
+  if (viewMode === 'table' && r.target) {
+    return (
+      <div className={cn('flex min-h-0 flex-1 flex-col transition-opacity', loading && 'opacity-60')}>
+        <TableView
+          docs={docs}
+          offset={r.page * PAGE_SIZE}
+          connectionId={r.target.connectionId}
+          ns={r.target.ns}
+          tabId={tabId}
+        />
+      </div>
+    )
+  }
+
   return (
     <div
       ref={parentRef}
-      className={cn(
-        'min-h-0 flex-1 overflow-auto pb-2 transition-opacity',
-        r.status === 'running' && docs.length > 0 && 'opacity-60'
-      )}
+      className={cn('min-h-0 flex-1 overflow-auto pb-2 transition-opacity', loading && 'opacity-60')}
       data-testid="results-list"
     >
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
@@ -340,12 +363,7 @@ function ResultsList({
             {viewMode === 'tree' ? (
               <JsonTree doc={docs[item.index]!} epoch={expand.epoch} mode={expand.mode} />
             ) : (
-              <pre
-                className="selectable overflow-hidden rounded-md border bg-card px-3 py-2 font-mono text-[12px] leading-[18px] whitespace-pre-wrap"
-                data-testid="doc"
-              >
-                {toShellString(docs[item.index])}
-              </pre>
+              <JsonView doc={docs[item.index]!} />
             )}
           </div>
         ))}

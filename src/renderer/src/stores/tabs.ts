@@ -4,7 +4,7 @@ import { ipc } from '../lib/ipc'
 
 export type TabType = 'documents' | 'connection-info'
 /** How a documents tab renders results. */
-export type ViewMode = 'tree' | 'text'
+export type ViewMode = 'tree' | 'json' | 'table'
 
 export interface Tab {
   id: string

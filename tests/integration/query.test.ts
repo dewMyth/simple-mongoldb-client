@@ -4,6 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { ConnectionManager } from '../../src/main/services/connection-manager'
 import { CursorRegistry } from '../../src/main/services/cursor-registry'
 import { QueryService } from '../../src/main/services/query-service'
+import { SchemaService } from '../../src/main/services/schema-service'
 import { BSON, EJSON } from 'bson'
 import { fromCanonical } from '../../src/shared/ejson'
 import { allTypesDoc, ALL_TYPES_ID } from '../fixtures/all-types'
@@ -162,6 +163,18 @@ describe('query service', () => {
     if (!res.ok) return
     const back = fromCanonical(res.docs[0])
     expect(Buffer.from(BSON.serialize(back)).equals(Buffer.from(BSON.serialize(doc)))).toBe(true)
+  })
+
+  it('samples fields with types and frequency', async () => {
+    const schemas = new SchemaService(manager, registry)
+    const sample = await schemas.sampleFields({ connectionId: connId, ns: 'shop.orders', size: 50 })
+    expect(sample.sampled).toBe(50)
+    const byPath = Object.fromEntries(sample.fields.map((f) => [f.path, f]))
+    expect(byPath['_id']!.types[0]!.type).toBe('objectId')
+    expect(byPath['i']!.types[0]!.type).toBe('int32')
+    expect(byPath['createdAt']!.types).toEqual([{ type: 'date', count: 50 }])
+    expect(byPath['status']!.probability).toBe(1)
+    expect(registry.size()).toBe(0)
   })
 
   it('counts: estimated without filter, exact with filter', async () => {
