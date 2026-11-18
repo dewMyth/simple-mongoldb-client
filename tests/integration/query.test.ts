@@ -89,6 +89,35 @@ describe('query service', () => {
     expect(registry.has(first.cursorId)).toBe(false)
   })
 
+  it('fetches a page in one batch, composed with the user skip/limit, leaving no cursor open', async () => {
+    const page = (offset: number, extra: Partial<QueryText> = {}) =>
+      queries.find({
+        connectionId: connId,
+        ns: 'shop.orders',
+        query: q({ sort: '{ i: 1 }', ...extra }),
+        page: { offset, size: 25 }
+      })
+    const p3 = await page(50)
+    expect(p3.ok && p3.exhausted).toBe(true)
+    if (!p3.ok) return
+    expect(p3.docs.map((d) => plain<{ i: number }>(d).i)).toEqual(
+      Array.from({ length: 25 }, (_, k) => 50 + k)
+    )
+    expect(registry.size()).toBe(0)
+    expect((await serverOps()).length).toBe(0)
+
+    const last = await page(225)
+    expect(last.ok && last.docs.length).toBe(25)
+    const beyond = await page(250)
+    expect(beyond.ok && beyond.docs.length).toBe(0)
+
+    // User skip 10 + limit 40: page 2 holds documents 35..49.
+    const user = await page(25, { skip: '10', limit: '40' })
+    expect(user.ok && user.docs.map((d) => plain<{ i: number }>(d).i)).toEqual(
+      Array.from({ length: 15 }, (_, k) => 35 + k)
+    )
+  })
+
   it('applies filter, projection, sort, skip, limit, collation and hint', async () => {
     await admin.db('shop').collection('orders').createIndex({ status: 1 })
     const res = await queries.find({

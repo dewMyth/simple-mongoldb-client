@@ -85,7 +85,9 @@ export const findSchema = z.object({
   ns: nsSchema,
   tabId: z.string().nullable().default(null),
   query: queryTextSchema,
-  batchSize: z.number().int().min(1).max(10_000).optional()
+  batchSize: z.number().int().min(1).max(10_000).optional(),
+  /** Page window over the user's skip/limit; the page arrives in one batch (no cursor left open). */
+  page: z.object({ offset: z.number().int().min(0), size: z.number().int().min(1).max(1000) }).optional()
 })
 
 // ---------------------------------------------------------------- the contract

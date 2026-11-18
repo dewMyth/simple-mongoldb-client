@@ -204,6 +204,7 @@ Compass's query bar accepts **shell syntax**, not strict JSON. These must all wo
 - **Virtualization** everywhere (TanStack Virtual), with variable row heights measured lazily.
 - **Lazy document tree**: big nested docs and arrays render the first N children and a "show 50 more" control. Long strings and binary are truncated with an expand action.
 - **Pagination modes**: infinite scroll (default) and classic pages (skip/limit) for people who want it.
+  - _Decision (Nov 2026): classic pages of 25 documents are the mode in use; infinite scroll is not implemented._
 - **Type-aware rendering**: every BSON type gets its own colour and badge: ObjectId (with a hover tooltip showing the embedded timestamp), Date (local + UTC on hover), Int32/Int64/Double/Decimal128 (distinct badges), Binary/UUID (subtype shown), Timestamp, Regex, MinKey/MaxKey, Code, DBRef, null, undefined.
 - Copy actions: copy doc as shell syntax, as canonical EJSON, as relaxed JSON; copy field path; copy value.
 - Performance budget, measured with a seeded collection of **1M documents of ~2 KB each** plus a few 10 MB documents:

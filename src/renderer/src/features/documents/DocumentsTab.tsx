@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Braces, ChevronsDownUp, ChevronsUpDown, ListTree } from 'lucide-react'
+import {
+  Braces,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronsUpDown,
+  ListTree
+} from 'lucide-react'
+import { PAGE_SIZE, resultTotal } from '@shared/query'
+import { cn } from '@renderer/lib/utils'
 import { toShellString } from '@shared/shell-format'
 import type { Tab, ViewMode } from '../../stores/tabs'
 import { useTabsStore } from '../../stores/tabs'
 import { ErrorBox, Spinner } from '../../components/form'
 import { QueryBar } from '../query-bar/QueryBar'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
-import { useResultsStore } from './results-store'
+import { useResultsStore, type TabResults } from './results-store'
 import { JsonTree, type ExpandMode } from './JsonTree'
 
 interface ExpandRequest {
@@ -72,6 +84,19 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
   )
 }
 
+/** User skip/limit from the query that produced the current results. */
+function userWindow(r: TabResults): { skip?: number; limit?: number } {
+  return {
+    skip: Number(r.ranQuery?.skip.trim() || 0) || undefined,
+    limit: Number(r.ranQuery?.limit.trim() || 0) || undefined
+  }
+}
+
+/** Total documents in the result set, if known exactly. */
+function exactTotal(r: TabResults): number | null {
+  return r.count?.exact ? resultTotal(r.count.value, userWindow(r)) : null
+}
+
 function ResultsHeader({
   tabId,
   viewMode,
@@ -87,13 +112,12 @@ function ResultsHeader({
 }) {
   const r = useResultsStore((s) => s.byTab[tabId])
   if (!r) return null
-  const loaded = r.docs.length
   let countText = ''
   if (r.count) {
-    const total = r.count.exact ? r.count.value : Math.max(r.count.value, loaded)
+    const total = resultTotal(r.count.value, userWindow(r))
     countText = r.count.exact
       ? `${total.toLocaleString()} document${total === 1 ? '' : 's'}`
-      : `≥ ${total.toLocaleString()} documents`
+      : `≥ ${Math.max(total, r.page * PAGE_SIZE + r.docs.length).toLocaleString()} documents`
   } else if (r.countError) {
     countText = 'Count unavailable'
   } else if (r.status !== 'idle') {
@@ -101,10 +125,11 @@ function ResultsHeader({
   }
   return (
     <div
-      className="flex h-8 shrink-0 items-center justify-between border-b border-border px-3 text-xs text-muted-foreground"
+      className="flex h-9 shrink-0 items-center justify-between gap-3 border-b px-3 text-xs text-muted-foreground"
       data-testid="results-header"
     >
-      <span className="flex items-center gap-2">
+      <span className="flex min-w-0 items-center gap-2">
+        <Pager tabId={tabId} r={r} />
         {r.status === 'running' && (
           <>
             <Spinner className="size-3" /> Running…{' '}
@@ -112,14 +137,8 @@ function ResultsHeader({
           </>
         )}
         {r.status === 'cancelled' && <span className="text-warn">Query cancelled</span>}
-        {(r.status === 'done' || r.status === 'cancelled') && loaded > 0 && (
-          <span data-testid="loaded-count">
-            Showing {loaded.toLocaleString()}
-            {r.exhausted ? '' : '+'}
-          </span>
-        )}
       </span>
-      <span className="flex items-center gap-3">
+      <span className="flex shrink-0 items-center gap-3">
         {viewMode === 'tree' && (
           <Button
             variant="ghost"
@@ -135,7 +154,7 @@ function ResultsHeader({
         <span data-testid="result-count" title={r.countError ?? undefined}>
           {countText}
         </span>
-        {r.firstBatchMs !== null && <span title="Time to first batch">{r.firstBatchMs} ms</span>}
+        {r.pageMs !== null && <span title="Time to load this page">{r.pageMs} ms</span>}
         <ToggleGroup
           type="single"
           size="sm"
@@ -168,7 +187,95 @@ function ResultsHeader({
   )
 }
 
-/** Virtualized results; each row is a tree or a shell-syntax text block. */
+/** First / previous / page input / next / last, plus the "26–50" range. 25 documents per page. */
+function Pager({ tabId, r }: { tabId: string; r: TabResults }) {
+  const goToPage = useResultsStore((s) => s.goToPage)
+  const [draft, setDraft] = useState<string | null>(null)
+  if (!r.ranQuery || (r.status !== 'done' && r.docs.length === 0 && r.page === 0)) return null
+
+  const total = exactTotal(r)
+  const lastPage = total !== null ? Math.max(0, Math.ceil(total / PAGE_SIZE) - 1) : null
+  const hasNext = lastPage !== null ? r.page < lastPage : r.docs.length === PAGE_SIZE
+  const busy = r.status === 'running'
+  const from = r.docs.length ? r.page * PAGE_SIZE + 1 : 0
+  const to = r.page * PAGE_SIZE + r.docs.length
+
+  const go = (p: number) =>
+    void goToPage(tabId, lastPage !== null ? Math.min(Math.max(0, p), lastPage) : Math.max(0, p))
+  const submit = () => {
+    const n = Number(draft)
+    setDraft(null)
+    if (Number.isInteger(n) && n >= 1) go(n - 1)
+  }
+
+  return (
+    <span className="flex items-center gap-0.5" data-testid="pager">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="First page"
+        disabled={busy || r.page === 0}
+        onClick={() => go(0)}
+        data-testid="page-first"
+      >
+        <ChevronsLeft />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Previous page"
+        disabled={busy || r.page === 0}
+        onClick={() => go(r.page - 1)}
+        data-testid="page-prev"
+      >
+        <ChevronLeft />
+      </Button>
+      <span className="flex items-center gap-1 px-1">
+        Page
+        <Input
+          aria-label="Page number"
+          inputMode="numeric"
+          className="h-6 w-11 px-1.5 text-center text-xs"
+          value={draft ?? String(r.page + 1)}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+          onFocus={(e) => e.target.select()}
+          onBlur={() => setDraft(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit()
+            if (e.key === 'Escape') setDraft(null)
+          }}
+          data-testid="page-input"
+        />
+        {lastPage !== null && <span>of {(lastPage + 1).toLocaleString()}</span>}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Next page"
+        disabled={busy || !hasNext}
+        onClick={() => go(r.page + 1)}
+        data-testid="page-next"
+      >
+        <ChevronRight />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Last page"
+        disabled={busy || lastPage === null || r.page >= lastPage}
+        onClick={() => lastPage !== null && go(lastPage)}
+        data-testid="page-last"
+      >
+        <ChevronsRight />
+      </Button>
+      <span className="pl-1.5 tabular-nums" data-testid="page-range">
+        {from.toLocaleString()}–{to.toLocaleString()}
+      </span>
+    </span>
+  )
+}
+
+/** Virtualized page of results; each row is a tree or a shell-syntax text block. */
 function ResultsList({
   tabId,
   viewMode,
@@ -179,21 +286,20 @@ function ResultsList({
   expand: ExpandRequest
 }) {
   const r = useResultsStore((s) => s.byTab[tabId])
-  const loadMore = useResultsStore((s) => s.loadMore)
   const parentRef = useRef<HTMLDivElement>(null)
   const docs = r?.docs ?? []
   const virtualizer = useVirtualizer({
-    count: docs.length + (r && !r.exhausted ? 1 : 0),
+    count: docs.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 160,
-    overscan: 6
+    overscan: 4
   })
-  const items = virtualizer.getVirtualItems()
-  const last = items.at(-1)
 
+  // A new page starts at the top (r.docs only changes identity when a page arrives).
+  const pageDocs = r?.docs
   useEffect(() => {
-    if (last && last.index >= docs.length - 10) void loadMore(tabId)
-  }, [last, docs.length, loadMore, tabId])
+    parentRef.current?.scrollTo({ top: 0 })
+  }, [pageDocs])
 
   if (!r) return null
   if (r.status === 'error' && r.error) {
@@ -206,15 +312,22 @@ function ResultsList({
   if (r.status === 'done' && !docs.length) {
     return (
       <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-        No documents match this query.
+        {r.page > 0 ? 'No documents on this page.' : 'No documents match this query.'}
       </div>
     )
   }
 
   return (
-    <div ref={parentRef} className="min-h-0 flex-1 overflow-auto" data-testid="results-list">
+    <div
+      ref={parentRef}
+      className={cn(
+        'min-h-0 flex-1 overflow-auto pb-2 transition-opacity',
+        r.status === 'running' && docs.length > 0 && 'opacity-60'
+      )}
+      data-testid="results-list"
+    >
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-        {items.map((item) => (
+        {virtualizer.getVirtualItems().map((item) => (
           <div
             key={item.key}
             data-index={item.index}
@@ -222,19 +335,15 @@ function ResultsList({
             className="absolute inset-x-0 px-3 pt-2"
             style={{ transform: `translateY(${item.start}px)` }}
           >
-            {item.index < docs.length && viewMode === 'tree' ? (
+            {viewMode === 'tree' ? (
               <JsonTree doc={docs[item.index]!} epoch={expand.epoch} mode={expand.mode} />
-            ) : item.index < docs.length ? (
+            ) : (
               <pre
                 className="selectable overflow-hidden rounded-md border bg-card px-3 py-2 font-mono text-[12px] leading-[18px] whitespace-pre-wrap"
                 data-testid="doc"
               >
                 {toShellString(docs[item.index])}
               </pre>
-            ) : (
-              <div className="flex h-10 items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Spinner className="size-3" /> Loading more…
-              </div>
             )}
           </div>
         ))}

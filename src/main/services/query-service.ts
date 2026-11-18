@@ -3,7 +3,14 @@
  */
 import type { Document, FindCursor, FindOptions, Sort } from 'mongodb'
 import { toCanonical, type CanonicalEJSON } from '@shared/ejson'
-import type { CountResult, FindPage, FindResult, QueryText } from '@shared/query'
+import {
+  pageWindow,
+  type CountResult,
+  type FindPage,
+  type FindResult,
+  type PageRequest,
+  type QueryText
+} from '@shared/query'
 import type { ConnectionManager } from './connection-manager'
 import { CancelledError, type CursorRegistry } from './cursor-registry'
 import { ReadableError } from './errors'
@@ -58,15 +65,25 @@ export class QueryService {
     tabId?: string | null
     query: QueryText
     batchSize?: number
+    page?: PageRequest
   }): Promise<FindResult> {
     const t0 = performance.now()
     const parsed = parseQuery(input.query)
     if (!parsed.ok) return { ok: false, errors: parsed.errors }
     const parseMs = performance.now() - t0
 
+    let batchSize = input.batchSize ?? DEFAULT_BATCH_SIZE
+    if (input.page) {
+      const win = pageWindow(parsed.query, input.page)
+      if (!win) return { ok: true, cursorId: '', parseMs, firstBatchMs: 0, docs: [], exhausted: true }
+      parsed.query.skip = win.skip
+      parsed.query.limit = win.limit
+      // The whole page comes back in the first batch, so the server closes the cursor itself.
+      batchSize = win.limit
+    }
+
     const client = this.connections.client(input.connectionId)
     const { db, coll } = splitNamespace(input.ns)
-    const batchSize = input.batchSize ?? DEFAULT_BATCH_SIZE
     const op = this.registry.register({
       client,
       connectionId: input.connectionId,

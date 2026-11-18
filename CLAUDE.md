@@ -34,3 +34,7 @@
   alias and installs an unrelated npm package called `cn`, which must be removed.
 - Document views: Tree (features/documents/JsonTree.tsx, collapsible, colour per BSON type) and Text (shell
   syntax). Type detection/display lives in src/shared/bson-types.ts.
+- Results are paged, 25 per page (`PAGE_SIZE` in src/shared/query.ts), not infinite scroll (user decision,
+  overrides PLAN.md Phase 5). Each page is its own find() with skip/limit layered on the user's skip/limit
+  (`pageWindow`), fetched in one batch so no cursor stays open between pages. Paging reuses the query as
+  it was when Find was pressed; only Find recounts.

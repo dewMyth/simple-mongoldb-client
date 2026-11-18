@@ -78,3 +78,32 @@ export interface FindPage {
 export type FindResult =
   | ({ ok: true; cursorId: string; parseMs: number; firstBatchMs: number } & FindPage)
   | { ok: false; errors: QueryFieldError[] }
+
+/** Documents per page in the results view. */
+export const PAGE_SIZE = 25
+
+/** A page window, applied on top of the user's own skip/limit. */
+export interface PageRequest {
+  /** Index of the first document within the user's result set (0-based). */
+  offset: number
+  size: number
+}
+
+/**
+ * Combines the user's skip/limit with a page window.
+ * Returns null when the page lies entirely beyond the user's limit.
+ */
+export function pageWindow(
+  user: { skip?: number; limit?: number },
+  page: PageRequest
+): { skip: number; limit: number } | null {
+  const skip = (user.skip ?? 0) + page.offset
+  const limit = user.limit ? Math.min(page.size, user.limit - page.offset) : page.size
+  return limit > 0 ? { skip, limit } : null
+}
+
+/** Size of the user's result set given the filter count and their skip/limit. */
+export function resultTotal(filterCount: number, user: { skip?: number; limit?: number }): number {
+  const afterSkip = Math.max(0, filterCount - (user.skip ?? 0))
+  return user.limit ? Math.min(afterSkip, user.limit) : afterSkip
+}

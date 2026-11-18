@@ -135,14 +135,75 @@ test('Esc cancels a long query and frees it on the server', async () => {
   }
 })
 
-test('closing a tab with an open cursor kills it on the server', async () => {
+test('closing a tab with a running query kills it on the server', async () => {
   const { app, page } = await launchApp()
   try {
     await openOrders(page)
-    // 300 docs, batch 100: the cursor stays open waiting for getMore.
-    await expect.poll(async () => (await serverOps()).length, { timeout: 5000 }).toBe(1)
+    // Paging fetches each page in one batch, so nothing stays open once a page has loaded.
+    await expect.poll(async () => (await serverOps()).length, { timeout: 5000 }).toBe(0)
+    await runFilter(page, '{ $where: "sleep(100) || true" }')
+    await expect.poll(async () => (await serverOps()).length, { timeout: 5000 }).toBeGreaterThan(0)
     await page.getByRole('tab').getByLabel('Close tab').click()
     await expect.poll(async () => (await serverOps()).length, { timeout: 5000 }).toBe(0)
+  } finally {
+    await app.close()
+  }
+})
+
+test('pages through results 25 at a time', async () => {
+  const { app, page } = await launchApp()
+  const firstI = () =>
+    page.getByTestId('json-tree').first().locator('[data-path="i"] [data-testid="json-value"]').textContent()
+  try {
+    await openOrders(page)
+    await runFilter(page, '{}')
+    await page.getByTestId('toggle-options').click()
+    await focusEditor(page, 'sort-editor')
+    await page.keyboard.insertText('{ i: 1 }')
+    await page.keyboard.press('ControlOrMeta+Enter')
+
+    const pager = page.getByTestId('pager')
+    await expect(page.getByTestId('page-range')).toHaveText('1–25')
+    await expect(pager).toContainText('of 12')
+    await expect.poll(firstI).toBe('0')
+    await expect(page.getByTestId('page-prev')).toBeDisabled()
+    await expect(page.getByTestId('page-first')).toBeDisabled()
+
+    await page.getByTestId('page-next').click()
+    await expect(page.getByTestId('page-range')).toHaveText('26–50')
+    await expect.poll(firstI).toBe('25')
+
+    await page.getByTestId('page-last').click()
+    await expect(page.getByTestId('page-range')).toHaveText('276–300')
+    await expect(page.getByTestId('page-next')).toBeDisabled()
+    await expect.poll(firstI).toBe('275')
+
+    await page.getByTestId('page-prev').click()
+    await expect(page.getByTestId('page-range')).toHaveText('251–275')
+
+    // Jump straight to page 5.
+    await page.getByTestId('page-input').fill('5')
+    await page.getByTestId('page-input').press('Enter')
+    await expect(page.getByTestId('page-range')).toHaveText('101–125')
+    await expect.poll(firstI).toBe('100')
+
+    await page.getByTestId('page-first').click()
+    await expect(page.getByTestId('page-range')).toHaveText('1–25')
+
+    // Paging never leaves a cursor open on the server.
+    expect((await serverOps()).length).toBe(0)
+
+    // The user's own limit caps the pages: limit 60 → 3 pages, the last with 10 documents.
+    await page.getByTestId('limit-input').fill('60')
+    await page.getByTestId('limit-input').press('Enter')
+    await expect(pager).toContainText('of 3')
+    await page.getByTestId('page-last').click()
+    await expect(page.getByTestId('page-range')).toHaveText('51–60')
+    await expect(page.getByTestId('result-count')).toHaveText('60 documents')
+
+    // A new Find starts again at page 1.
+    await page.getByTestId('run-query').click()
+    await expect(page.getByTestId('page-range')).toHaveText('1–25')
   } finally {
     await app.close()
   }
