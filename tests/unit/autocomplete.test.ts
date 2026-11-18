@@ -29,10 +29,10 @@ const fields = collectFieldStats(
 )
 
 /** Completes at the "|" marker. */
-function at(mode: CompletionMode, textWithCursor: string) {
+function at(mode: CompletionMode, textWithCursor: string, stage?: string) {
   const offset = textWithCursor.indexOf('|')
   const text = textWithCursor.slice(0, offset) + textWithCursor.slice(offset + 1)
-  const r = complete(text, offset, { mode, fields, now: new Date('2026-11-18T12:00:00Z') })
+  const r = complete(text, offset, { mode, fields, now: new Date('2026-11-18T12:00:00Z'), stage })
   return { ...r, labels: r.suggestions.map((s) => s.label), text, offset }
 }
 
@@ -169,6 +169,15 @@ describe('operator completions by context', () => {
     expect(at('sort', '{ total: | }').labels).toEqual(['1', '-1'])
     expect(at('project', '{ | }').labels).toContain('customer.name')
     expect(at('collation', '{ | }').labels).toContain('locale')
+  })
+})
+
+describe('stage body mode (aggregation builder cards)', () => {
+  it('completes according to the card’s operator', () => {
+    expect(at('stage', '{ total: { $| } }', '$match').labels).toContain('$gte')
+    expect(at('stage', '{ _id: "$status", n: { $| } }', '$group').labels).toContain('$sum')
+    expect(at('stage', '{ | }', '$lookup').labels).toEqual(expect.arrayContaining(['from', 'localField']))
+    expect(at('stage', '"$cus|"', '$unwind').labels).toContain('$customer.name')
   })
 })
 

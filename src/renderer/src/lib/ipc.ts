@@ -10,7 +10,10 @@ export const WRITE_CHANNELS = new Set<Channel>([
   'docs:updateMany',
   'db:createCollection',
   'db:dropCollection',
-  'db:dropDatabase'
+  'db:dropDatabase',
+  'agg:createView',
+  // Only writes when the pipeline ends in $out/$merge (the guard checks).
+  'agg:run'
 ])
 
 /** Returns false to stop a write (e.g. the user declined a production confirmation). */

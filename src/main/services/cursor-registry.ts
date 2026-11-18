@@ -98,8 +98,14 @@ export class CursorRegistry {
     return true
   }
 
+  /**
+   * Cancels a tab's operations. Sub-owners like "<tabId>#preview" belong to the tab too, so
+   * closing the tab kills them, while cancelling "<tabId>#preview" leaves the tab's other work.
+   */
   async cancelForTab(tabId: string): Promise<number> {
-    const ids = [...this.ops.values()].filter((o) => o.tabId === tabId).map((o) => o.id)
+    const ids = [...this.ops.values()]
+      .filter((o) => o.tabId === tabId || o.tabId?.startsWith(`${tabId}#`))
+      .map((o) => o.id)
     await Promise.all(ids.map((id) => this.cancel(id)))
     return ids.length
   }

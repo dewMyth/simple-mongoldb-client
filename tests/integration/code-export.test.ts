@@ -12,7 +12,13 @@ import { join, resolve } from 'node:path'
 import { MongoClient, type CollationOptions, type Document } from 'mongodb'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { bsonTypeOf, type BsonTypeTag } from '../../src/shared/bson-types'
-import { exportQuery, type ExportLanguage, type ExportMode } from '../../src/shared/code-export'
+import {
+  exportAggregate,
+  exportQuery,
+  type ExportLanguage,
+  type ExportMode
+} from '../../src/shared/code-export'
+import { buildPipeline } from '../../src/main/services/aggregation-service'
 import { toShellString } from '../../src/shared/shell-format'
 import { emptyQueryText, type QueryText } from '../../src/shared/query'
 import { parseQuery } from '../../src/main/services/query-parser'
@@ -207,5 +213,38 @@ describe('find mode runs', () => {
       .split('\n')
     expect(lines).toHaveLength(5)
     expect(lines.every((l) => l.includes("'status': 'paid'"))).toBe(true)
+  })
+})
+
+describe('exported aggregation code runs and returns the same result', () => {
+  const stages = [
+    { operator: '$match', body: "{ status: { $in: ['paid', 'Paid'] } }" },
+    { operator: '$group', body: "{ _id: '$customer.tier', n: { $sum: 1 } }" },
+    { operator: '$count', body: "'groups'" }
+  ]
+  const code = (language: ExportLanguage) => {
+    const built = buildPipeline(stages)
+    if (!built.ok) throw new Error('pipeline')
+    return exportAggregate(language, { db: 'shop', collection: 'orders' }, built.pipeline, {
+      allowDiskUse: true,
+      collation: { locale: 'en', strength: 2 }
+    })
+  }
+  const expected = async () => {
+    const built = buildPipeline(stages)
+    if (!built.ok) throw new Error('pipeline')
+    const [r] = await client
+      .db('shop')
+      .collection('orders')
+      .aggregate(built.pipeline, { collation: { locale: 'en', strength: 2 } })
+      .toArray()
+    return r!.groups as number
+  }
+
+  it('Node', async () => {
+    expect(run('node', code('node'))).toMatch(new RegExp(`groups: ${await expected()}\\b`))
+  })
+  it.skipIf(!python)('Python', async () => {
+    expect(run('python', code('python')).trim()).toBe(`{'groups': ${await expected()}}`)
   })
 })

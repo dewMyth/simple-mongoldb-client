@@ -5,6 +5,7 @@
 import { create } from 'zustand'
 import { emptyQueryText, type QueryText } from '@shared/query'
 import type { PersistedTab, SplitOrientation, TabType, ViewMode, Workspace } from '@shared/workspace'
+import type { PipelineState } from '@shared/pipeline'
 import { ipc } from '../lib/ipc'
 
 export type { TabType, ViewMode, SplitOrientation }
@@ -15,7 +16,7 @@ export interface Tab extends PersistedTab {
 }
 
 export type NewTab = Pick<Tab, 'type' | 'connectionId' | 'ns' | 'title'> &
-  Partial<Pick<Tab, 'query' | 'viewMode' | 'autoRun'>>
+  Partial<Pick<Tab, 'query' | 'viewMode' | 'autoRun' | 'pipeline'>>
 
 export interface Split {
   /** The tab shown in the secondary (right/bottom) pane. */
@@ -62,6 +63,7 @@ interface TabsState {
   setQuery: (id: string, query: QueryText) => void
   setViewMode: (id: string, viewMode: ViewMode) => void
   setScrollAnchor: (id: string, index: number) => void
+  setPipeline: (id: string, pipeline: PipelineState) => void
   hydrate: (ws: Workspace) => void
 }
 
@@ -197,8 +199,8 @@ export const useTabsStore = create<TabsState>((set, get) => {
       const [last, ...rest] = get().closed
       if (!last) return null
       set({ closed: rest })
-      const { type, connectionId, ns, title, query, viewMode } = last
-      return get().open({ type, connectionId, ns, title, query, viewMode }, { newTab: true })
+      const { type, connectionId, ns, title, query, viewMode, pipeline } = last
+      return get().open({ type, connectionId, ns, title, query, viewMode, pipeline }, { newTab: true })
     },
 
     duplicate(id) {
@@ -268,6 +270,10 @@ export const useTabsStore = create<TabsState>((set, get) => {
         set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, scrollAnchor: index } : t)) })
     },
 
+    setPipeline(id, pipeline) {
+      set({ tabs: get().tabs.map((t) => (t.id === id ? { ...t, pipeline } : t)) })
+    },
+
     hydrate(ws) {
       set({
         tabs: ordered(ws.tabs.map((t) => ({ ...t, autoRun: false }))),
@@ -298,7 +304,8 @@ export function toWorkspace(s: Pick<TabsState, 'tabs' | 'activeId' | 'split'>): 
       query: t.query,
       viewMode: t.viewMode,
       pinned: t.pinned,
-      scrollAnchor: t.scrollAnchor
+      scrollAnchor: t.scrollAnchor,
+      ...(t.pipeline ? { pipeline: t.pipeline } : {})
     })),
     activeId: s.activeId,
     split: s.split

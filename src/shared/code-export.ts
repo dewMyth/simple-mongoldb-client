@@ -1073,3 +1073,243 @@ export function exportQuery(
       return shellProgram(target, query, mode)
   }
 }
+
+// ---------------------------------------------------------------- aggregation
+
+export interface ExportableAggregateOptions {
+  allowDiskUse?: boolean
+  maxTimeMS?: number
+  collation?: Record<string, unknown>
+  comment?: string
+}
+
+function nodeAggregate(t: ExportTarget, pipeline: unknown[], o: ExportableAggregateOptions): string {
+  const imports = new Set<string>()
+  const lang = nodeLang(imports)
+  const opts: string[] = []
+  if (o.allowDiskUse) opts.push('allowDiskUse: true')
+  if (o.maxTimeMS) opts.push(`maxTimeMS: ${o.maxTimeMS}`)
+  if (o.collation && Object.keys(o.collation).length) opts.push(`collation: ${render(lang, o.collation, 2)}`)
+  if (o.comment) opts.push(`comment: ${str(o.comment)}`)
+  const p = render(lang, pipeline, 1)
+  const names = ['MongoClient', ...[...imports].sort()]
+  return `// Set MONGODB_URI to your connection string.
+import { ${names.join(', ')} } from "mongodb"
+
+const client = new MongoClient(process.env.MONGODB_URI ?? "mongodb://localhost:27017")
+
+try {
+  const coll = client.db(${str(t.db)}).collection(${str(t.collection)})
+  const pipeline = ${p}
+  const cursor = coll.aggregate(pipeline${opts.length ? `, {\n    ${opts.join(',\n    ')}\n  }` : ''})
+  for await (const doc of cursor) console.log(doc)
+} finally {
+  await client.close()
+}
+`
+}
+
+function pythonAggregate(t: ExportTarget, pipeline: unknown[], o: ExportableAggregateOptions): string {
+  const imports = new Set<string>()
+  const lang = pyLang(imports)
+  const args = ['pipeline']
+  if (o.allowDiskUse) args.push('allowDiskUse=True')
+  if (o.maxTimeMS) args.push(`maxTimeMS=${o.maxTimeMS}`)
+  if (o.collation && Object.keys(o.collation).length) args.push(`collation=${render(lang, o.collation, 2)}`)
+  if (o.comment) args.push(`comment=${str(o.comment)}`)
+  const p = render(lang, pipeline, 1)
+  const call = args.length > 1 ? `(\n        ${args.join(',\n        ')},\n    )` : '(pipeline)'
+  const importLines = ['import os', 'from pymongo import MongoClient', ...[...imports].sort()]
+  return `# Set MONGODB_URI to your connection string.
+${importLines.join('\n')}
+
+client = MongoClient(os.environ.get("MONGODB_URI", "mongodb://localhost:27017"))
+try:
+    coll = client[${str(t.db)}][${str(t.collection)}]
+    pipeline = ${p}
+    for doc in coll.aggregate${call}:
+        print(doc)
+finally:
+    client.close()
+`
+}
+
+function javaAggregate(t: ExportTarget, pipeline: unknown[], o: ExportableAggregateOptions): string {
+  const imports = new Set<string>([
+    'com.mongodb.client.AggregateIterable',
+    'com.mongodb.client.MongoClient',
+    'com.mongodb.client.MongoClients',
+    'com.mongodb.client.MongoCollection',
+    'java.util.Arrays',
+    'java.util.List',
+    'org.bson.Document'
+  ])
+  const lang = javaLang(imports)
+  const stages = pipeline.map((s) => render(lang, s, 4))
+  const chain: string[] = []
+  if (o.allowDiskUse) chain.push('.allowDiskUse(true)')
+  if (o.maxTimeMS) {
+    imports.add('java.util.concurrent.TimeUnit')
+    chain.push(`.maxTime(${o.maxTimeMS}, TimeUnit.MILLISECONDS)`)
+  }
+  if (o.collation && Object.keys(o.collation).length) {
+    imports.add('com.mongodb.client.model.Collation')
+    const parts = Object.entries(o.collation).map(([k, x]) => {
+      if (k === 'caseFirst') imports.add('com.mongodb.client.model.CollationCaseFirst')
+      if (k === 'strength') imports.add('com.mongodb.client.model.CollationStrength')
+      if (k === 'alternate') imports.add('com.mongodb.client.model.CollationAlternate')
+      if (k === 'maxVariable') imports.add('com.mongodb.client.model.CollationMaxVariable')
+      return JAVA_COLLATION[k]?.(x) ?? `/* unsupported collation option ${k} */`
+    })
+    chain.push(`.collation(Collation.builder()${parts.join('')}.build())`)
+  }
+  if (o.comment) chain.push(`.comment(${str(o.comment)})`)
+  return `// Set MONGODB_URI to your connection string.
+${[...imports]
+  .sort()
+  .map((i) => `import ${i};`)
+  .join('\n')}
+
+public class Aggregate {
+    public static void main(String[] args) {
+        String uri = System.getenv().getOrDefault("MONGODB_URI", "mongodb://localhost:27017");
+        try (MongoClient client = MongoClients.create(uri)) {
+            MongoCollection<Document> coll = client.getDatabase(${str(t.db)}).getCollection(${str(t.collection)});
+            List<Document> pipeline = Arrays.asList(${stages.length ? `\n                ${stages.join(',\n                ')}` : ''});
+            AggregateIterable<Document> result = coll.aggregate(pipeline)${chain.map((c) => `\n                    ${c}`).join('')};
+            for (Document doc : result) {
+                System.out.println(doc.toJson());
+            }
+        }
+    }
+}
+`
+}
+
+function csharpAggregate(t: ExportTarget, pipeline: unknown[], o: ExportableAggregateOptions): string {
+  const lang = csLang()
+  const stages = pipeline.map((s) => render(lang, s, 1))
+  const opts: string[] = []
+  if (o.allowDiskUse) opts.push('AllowDiskUse = true')
+  if (o.maxTimeMS) opts.push(`MaxTime = TimeSpan.FromMilliseconds(${o.maxTimeMS})`)
+  if (o.collation && Object.keys(o.collation).length)
+    opts.push(`Collation = Collation.FromBsonDocument(${render(lang, o.collation, 1)})`)
+  if (o.comment) opts.push(`Comment = ${str(o.comment)}`)
+  return `// Set MONGODB_URI to your connection string.
+using MongoDB.Bson;
+using MongoDB.Driver;
+
+var uri = Environment.GetEnvironmentVariable("MONGODB_URI") ?? "mongodb://localhost:27017";
+var client = new MongoClient(uri);
+var coll = client.GetDatabase(${str(t.db)}).GetCollection<BsonDocument>(${str(t.collection)});
+var pipeline = new BsonDocument[]
+{
+    ${stages.join(',\n    ')}
+};
+${opts.length ? `var options = new AggregateOptions\n{\n    ${opts.join(',\n    ')}\n};\n` : ''}var docs = coll.Aggregate<BsonDocument>(pipeline${opts.length ? ', options' : ''}).ToList();
+foreach (var doc in docs)
+{
+    Console.WriteLine(doc);
+}
+`
+}
+
+function goAggregate(t: ExportTarget, pipeline: unknown[], o: ExportableAggregateOptions): string {
+  const imports = new Set<string>(['context', 'fmt', 'os'])
+  const helpers = new Set<string>()
+  const lang = goLang(imports, helpers)
+  const stages = pipeline.map((s) => render(lang, s, 2))
+  const setters: string[] = []
+  if (o.allowDiskUse) setters.push('SetAllowDiskUse(true)')
+  if (o.collation && Object.keys(o.collation).length)
+    setters.push(
+      `SetCollation(&options.Collation{${Object.entries(o.collation)
+        .map(([k, x]) => GO_COLLATION[k]?.(x) ?? `/* unsupported: ${k} */`)
+        .join(', ')}})`
+    )
+  if (o.comment) setters.push(`SetComment(${str(o.comment)})`)
+  let ctx = '\tctx := context.Background()'
+  if (o.maxTimeMS) {
+    imports.add('time')
+    ctx = `\tctx, cancel := context.WithTimeout(context.Background(), ${o.maxTimeMS}*time.Millisecond)\n\tdefer cancel()`
+  }
+  const optsVar = setters.length
+    ? `\topts := options.Aggregate()${setters.map((s) => `.\n\t\t${s}`).join('')}\n`
+    : ''
+  return `// Set MONGODB_URI to your connection string.
+package main
+
+import (
+${[...imports]
+  .sort()
+  .map((i) => `\t${str(i)}`)
+  .join('\n')}
+
+\t"go.mongodb.org/mongo-driver/v2/bson"
+\t"go.mongodb.org/mongo-driver/v2/mongo"
+\t"go.mongodb.org/mongo-driver/v2/mongo/options"
+)
+
+func main() {
+\turi := os.Getenv("MONGODB_URI")
+\tif uri == "" {
+\t\turi = "mongodb://localhost:27017"
+\t}
+\tclient, err := mongo.Connect(options.Client().ApplyURI(uri))
+\tif err != nil {
+\t\tpanic(err)
+\t}
+\tdefer client.Disconnect(context.Background())
+
+${ctx}
+\tcoll := client.Database(${str(t.db)}).Collection(${str(t.collection)})
+\tpipeline := mongo.Pipeline{${stages.length ? `\n\t\t${stages.join(',\n\t\t')},\n\t` : ''}}
+${optsVar}\tcursor, err := coll.Aggregate(ctx, pipeline${setters.length ? ', opts' : ''})
+\tif err != nil {
+\t\tpanic(err)
+\t}
+\tdefer cursor.Close(ctx)
+\tfor cursor.Next(ctx) {
+\t\tfmt.Println(cursor.Current)
+\t}
+\tif err := cursor.Err(); err != nil {
+\t\tpanic(err)
+\t}
+}
+${[...helpers].map((h) => `\n${GO_HELPERS[h]}\n`).join('')}`
+}
+
+function shellAggregate(t: ExportTarget, pipeline: unknown[], o: ExportableAggregateOptions): string {
+  const coll = JS_IDENT.test(t.collection)
+    ? `db.getSiblingDB(${str(t.db)}).${t.collection}`
+    : `db.getSiblingDB(${str(t.db)}).getCollection(${str(t.collection)})`
+  const opts: Record<string, unknown> = {}
+  if (o.allowDiskUse) opts.allowDiskUse = true
+  if (o.maxTimeMS) opts.maxTimeMS = o.maxTimeMS
+  if (o.collation && Object.keys(o.collation).length) opts.collation = o.collation
+  if (o.comment) opts.comment = o.comment
+  const stages = pipeline.map((s) => `  ${toShellString(s, 0)}`)
+  return `${coll}.aggregate([${stages.length ? `\n${stages.join(',\n')}\n` : ''}]${Object.keys(opts).length ? `, ${toShellString(opts, 0)}` : ''})\n`
+}
+
+export function exportAggregate(
+  language: ExportLanguage,
+  target: ExportTarget,
+  pipeline: unknown[],
+  options: ExportableAggregateOptions = {}
+): string {
+  switch (language) {
+    case 'node':
+      return nodeAggregate(target, pipeline, options)
+    case 'python':
+      return pythonAggregate(target, pipeline, options)
+    case 'java':
+      return javaAggregate(target, pipeline, options)
+    case 'csharp':
+      return csharpAggregate(target, pipeline, options)
+    case 'go':
+      return goAggregate(target, pipeline, options)
+    case 'shell':
+      return shellAggregate(target, pipeline, options)
+  }
+}

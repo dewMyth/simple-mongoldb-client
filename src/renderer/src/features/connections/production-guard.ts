@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import type { SavedConnection } from '@shared/connection'
 import type { Channel, ChannelInput } from '@shared/ipc-contract'
+import { isWriteStage } from '@shared/pipeline'
 import { ipc, setWriteGuard } from '../../lib/ipc'
 import { queryClient } from '../../lib/query-client'
 import { keys } from './queries'
@@ -53,6 +54,12 @@ export function describeWrite(channel: Channel, input: unknown): string {
       return `Drop the collection ${i.db}.${i.name}`
     case 'db:dropDatabase':
       return `Drop the database ${i.db}`
+    case 'agg:createView':
+      return `Create the view ${i.ns?.split('.')[0]}.${i.name}`
+    case 'agg:run': {
+      const last = (input as { stages?: { operator: string; body: string }[] }).stages?.at(-1)
+      return `Run a pipeline that writes with ${last?.operator} ${last?.body.trim()} (from ${i.ns})`
+    }
     default:
       return 'Write to the database'
   }
@@ -72,6 +79,10 @@ export function installProductionGuard(): void {
   setWriteGuard(async <C extends Channel>(channel: C, input: ChannelInput<C>) => {
     const connectionId = (input as { connectionId?: string } | undefined)?.connectionId
     if (!connectionId) return true
+    if (channel === 'agg:run') {
+      const last = (input as { stages: { operator: string }[] }).stages.at(-1)
+      if (!last || !isWriteStage(last.operator)) return true // a read-only pipeline
+    }
     const conn = await productionConnection(connectionId)
     if (!conn) return true
     return ask(conn.name, describeWrite(channel, input))

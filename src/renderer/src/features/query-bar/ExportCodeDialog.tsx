@@ -1,5 +1,5 @@
 /**
- * "Export to code": the current query as runnable driver code in six languages. Code is
+ * "Export to code": the current query or pipeline as runnable driver code in six languages. Code is
  * generated in main (where the query parser lives); the connection string is always read from
  * MONGODB_URI, so no credentials ever appear in the output.
  */
@@ -13,6 +13,7 @@ import {
   type ExportMode
 } from '@shared/code-export'
 import type { QueryText } from '@shared/query'
+import type { PipelineOptions, StageInput } from '@shared/pipeline'
 import { Dialog } from '../../components/Dialog'
 import { Button } from '../../components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
@@ -40,13 +41,16 @@ function initialLanguage(): ExportLanguage {
   return 'node'
 }
 
+export type ExportSource =
+  { kind: 'query'; query: QueryText } | { kind: 'aggregate'; stages: StageInput[]; options: PipelineOptions }
+
 export function ExportCodeDialog({
   ns,
-  query,
+  source,
   onClose
 }: {
   ns: string
-  query: QueryText
+  source: ExportSource
   onClose: () => void
 }) {
   const [language, setLanguage] = useState<ExportLanguage>(initialLanguage)
@@ -55,8 +59,18 @@ export function ExportCodeDialog({
   const theme = useThemeStore((s) => s.resolved)
 
   const { data, error } = useQuery({
-    queryKey: ['exportCode', ns, query, language, mode],
-    queryFn: () => ipc('query:exportCode', { ns, query, language, mode })
+    queryKey: ['exportCode', ns, source, language, mode],
+    queryFn: async (): Promise<{ ok: true; code: string } | { ok: false; message: string }> => {
+      if (source.kind === 'aggregate')
+        return ipc('agg:exportCode', { ns, stages: source.stages, options: source.options, language })
+      const r = await ipc('query:exportCode', { ns, query: source.query, language, mode })
+      return r.ok
+        ? r
+        : {
+            ok: false,
+            message: `Fix the query first: ${r.errors.map((e) => `${e.field}: ${e.message}`).join(' · ')}`
+          }
+    }
   })
   const code = data?.ok ? data.code : null
 
@@ -97,7 +111,7 @@ export function ExportCodeDialog({
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title="Export query to code"
+      title={source.kind === 'query' ? 'Export query to code' : 'Export pipeline to code'}
       description={`${ns} · the connection string is read from MONGODB_URI`}
       width="lg"
       footer={
@@ -119,26 +133,28 @@ export function ExportCodeDialog({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={mode}
-          onValueChange={(m) => m && setMode(m as ExportMode)}
-        >
-          <ToggleGroupItem value="find" className="px-2.5 text-xs">
-            Find
-          </ToggleGroupItem>
-          <ToggleGroupItem value="count" className="px-2.5 text-xs" data-testid="export-mode-count">
-            Count
-          </ToggleGroupItem>
-        </ToggleGroup>
+        {source.kind === 'query' && (
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={mode}
+            onValueChange={(m) => m && setMode(m as ExportMode)}
+          >
+            <ToggleGroupItem value="find" className="px-2.5 text-xs">
+              Find
+            </ToggleGroupItem>
+            <ToggleGroupItem value="count" className="px-2.5 text-xs" data-testid="export-mode-count">
+              Count
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </div>
       {error ? (
         <div className="text-xs text-destructive">{(error as Error).message}</div>
       ) : data && !data.ok ? (
         <div className="text-xs text-destructive" data-testid="export-errors">
-          Fix the query first: {data.errors.map((e) => `${e.field}: ${e.message}`).join(' · ')}
+          {data.message}
         </div>
       ) : (
         <div className="rounded-md border bg-card">

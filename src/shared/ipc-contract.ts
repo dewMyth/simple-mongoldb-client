@@ -28,6 +28,14 @@ import {
   type RecentQuery
 } from './query'
 import { workspaceSchema, type Workspace } from './workspace'
+import {
+  pipelineOptionsSchema,
+  pipelineStageSchema,
+  stageInputSchema,
+  type PipelineRunResult,
+  type SavedPipeline,
+  type StagePreview
+} from './pipeline'
 import type { PermissionSnapshot } from './permissions'
 import type { FieldStat } from './field-stats'
 import type { InsertResult, ParseDocumentsResult, UpdatePreview, UpdateResult } from './documents'
@@ -97,6 +105,35 @@ export const exportCodeSchema = z.object({
   query: queryTextSchema,
   language: z.enum(exportLanguages),
   mode: z.enum(['find', 'count'])
+})
+
+const aggTarget = z.object({ connectionId: connId, ns: nsSchema, tabId: z.string().nullable().optional() })
+const stageList = z.array(stageInputSchema).max(500)
+export const aggPreviewSchema = aggTarget.extend({
+  stages: stageList,
+  sampleSize: z.number().int().min(1).max(1000),
+  options: pipelineOptionsSchema,
+  lastOnly: z.boolean().optional()
+})
+export const aggRunSchema = aggTarget.extend({ stages: stageList, options: pipelineOptionsSchema })
+export const aggCreateViewSchema = z.object({
+  connectionId: connId,
+  ns: nsSchema,
+  name: collName,
+  stages: stageList
+})
+export const aggExportSchema = z.object({
+  ns: nsSchema,
+  stages: stageList,
+  options: pipelineOptionsSchema,
+  language: z.enum(exportLanguages)
+})
+export const pipelineSaveSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().max(200),
+  ns: nsSchema,
+  stages: z.array(pipelineStageSchema.omit({ id: true })).max(500),
+  options: pipelineOptionsSchema
 })
 
 export type ExportCodeResult = { ok: true; code: string } | { ok: false; errors: QueryFieldError[] }
@@ -214,6 +251,20 @@ export const ipcContract = {
   ),
   /** Before/after of the first 5 matching documents. Never writes. */
   'docs:previewUpdate': channel<typeof docUpdateManySchema, UpdatePreview>(docUpdateManySchema),
+  /** The output of the pipeline up to each stage (sampled). Never runs $out/$merge. */
+  'agg:preview': channel<typeof aggPreviewSchema, StagePreview[]>(aggPreviewSchema),
+  /** Runs the whole pipeline (permission-checked when it ends in $out/$merge). */
+  'agg:run': channel<typeof aggRunSchema, PipelineRunResult>(aggRunSchema),
+  'agg:createView': channel<typeof aggCreateViewSchema, string>(aggCreateViewSchema),
+  'agg:exportCode': channel<
+    typeof aggExportSchema,
+    { ok: true; code: string } | { ok: false; message: string }
+  >(aggExportSchema),
+  /** Syntax check for one stage body (live squiggles). Null when it parses. */
+  'agg:validateStage': channel<typeof stageInputSchema, QueryFieldError | null>(stageInputSchema),
+  'pipelines:list': channel<typeof nsSchema, SavedPipeline[]>(nsSchema),
+  'pipelines:save': channel<typeof pipelineSaveSchema, SavedPipeline>(pipelineSaveSchema),
+  'pipelines:delete': channel<z.ZodString, void>(z.string().min(1)),
   'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
   /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
   'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),

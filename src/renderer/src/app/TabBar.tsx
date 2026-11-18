@@ -1,6 +1,6 @@
 import { cn } from '@renderer/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
-import { Columns2, Info, Lock, Pin, Table2, X } from 'lucide-react'
+import { Columns2, Info, Lock, Pin, Table2, Workflow, X } from 'lucide-react'
 import { ContextMenu, type MenuItem } from '../components/Menu'
 import { isReadOnly } from '@shared/permissions'
 import { ipc } from '../lib/ipc'
@@ -32,7 +32,7 @@ export function TabBar() {
         const conn = saved.find((c) => c.id === t.connectionId)
         const color = conn ? colorHex[conn.color] : null
         const production = !!conn?.production
-        const Icon = t.type === 'connection-info' ? Info : Table2
+        const Icon = t.type === 'connection-info' ? Info : t.type === 'aggregation' ? Workflow : Table2
         const pane = t.id === activeId ? 'primary' : t.id === split?.tabId ? 'secondary' : null
         const focused = pane !== null && (!split || pane === focusedPane)
         const items: MenuItem[] = [

@@ -12,6 +12,8 @@ export interface CompletionTarget {
   /** Field names come from a sample of this namespace (omit for operators only). */
   connectionId?: string
   ns?: string
+  /** Mode 'stage': the stage operator being edited. */
+  stage?: string
 }
 
 type Model = ReturnType<typeof monaco.editor.createModel>
@@ -70,7 +72,11 @@ function ensureProviders() {
       if (model.isDisposed()) return { suggestions: [] }
       const text = model.getValue()
       const offset = model.getOffsetAt(position)
-      const r = complete(text, offset, { mode: target.mode, fields: sample?.fields ?? [] })
+      const r = complete(text, offset, {
+        mode: target.mode,
+        fields: sample?.fields ?? [],
+        stage: target.stage
+      })
       const start = model.getPositionAt(r.replaceStart)
       const end = model.getPositionAt(Math.max(r.replaceEnd, offset))
       const insert = new monaco.Range(start.lineNumber, start.column, position.lineNumber, position.column)

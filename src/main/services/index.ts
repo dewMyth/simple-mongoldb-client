@@ -2,6 +2,9 @@
 import { safeStorage } from 'electron'
 import type { Workspace } from '@shared/workspace'
 import { WorkspaceService } from './workspace-service'
+import { AggregationService } from './aggregation-service'
+import { PipelineLibrary } from './pipeline-library'
+import type { SavedPipeline } from '@shared/pipeline'
 import Store from 'electron-store'
 import { ConnectionManager } from './connection-manager'
 import { DatabaseService } from './database-service'
@@ -56,4 +59,14 @@ const workspaceStore = new Store<{ workspace: Workspace | null }>({
 export const workspace = new WorkspaceService({
   get: () => workspaceStore.get('workspace'),
   set: (w) => workspaceStore.set('workspace', w)
+})
+
+export const aggregations = new AggregationService(connections, cursors)
+const pipelineStore = new Store<{ pipelines: SavedPipeline[] }>({
+  name: 'pipelines',
+  defaults: { pipelines: [] }
+})
+export const pipelineLibrary = new PipelineLibrary({
+  get: () => pipelineStore.get('pipelines'),
+  set: (p) => pipelineStore.set('pipelines', p)
 })

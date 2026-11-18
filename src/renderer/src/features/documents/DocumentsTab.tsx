@@ -12,7 +12,8 @@ import {
   ListTree,
   MoreHorizontal,
   Plus,
-  Sheet
+  Sheet,
+  Workflow
 } from 'lucide-react'
 import { PAGE_SIZE, resultTotal } from '@shared/query'
 import { toShellString } from '@shared/shell-format'
@@ -45,6 +46,7 @@ import { DocEditCard, type EditMode } from './editing/DocEditCard'
 import { EMPTY_INSERT, InsertDialog } from './editing/InsertDialog'
 import { BulkDeleteDialog, BulkUpdateDialog } from './editing/BulkDialogs'
 import { useWriteCheck } from './editing/use-write-check'
+import { openAggregation } from '../aggregation/open'
 
 /** The document being edited, tied to the page request it belongs to. */
 interface Editing {
@@ -147,6 +149,7 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
           expand={expand}
           onExpand={(mode) => setExpand((e) => ({ epoch: e.epoch + 1, mode }))}
           onInsert={() => setInserting(EMPTY_INSERT)}
+          onAggregate={() => openAggregation(tab.connectionId, ns, tab.query.filter)}
           onBulk={setBulk}
         />
         <ResultsList tabId={tab.id} viewMode={tab.viewMode} expand={expand} {...editingProps} />
@@ -182,6 +185,7 @@ function ResultsHeader({
   expand,
   onExpand,
   onInsert,
+  onAggregate,
   onBulk
 }: {
   tabId: string
@@ -190,6 +194,7 @@ function ResultsHeader({
   expand: ExpandRequest
   onExpand: (mode: ExpandMode) => void
   onInsert: () => void
+  onAggregate: () => void
   onBulk: (kind: 'update' | 'delete') => void
 }) {
   const r = useResultsStore((s) => s.byTab[tabId])
@@ -240,6 +245,16 @@ function ResultsHeader({
           {countText}
         </span>
         {r.pageMs !== null && <span title="Time to load this page">{r.pageMs} ms</span>}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6"
+          title="Open the aggregation builder (starts with this filter)"
+          onClick={onAggregate}
+          data-testid="open-aggregation"
+        >
+          <Workflow /> Aggregate
+        </Button>
         <Button
           variant="outline"
           size="sm"

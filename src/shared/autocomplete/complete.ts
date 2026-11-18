@@ -25,7 +25,9 @@ import {
 } from './operators'
 import { keySnippets, valueSnippets } from './snippets'
 
-export type CompletionMode = 'filter' | 'project' | 'sort' | 'collation' | 'pipeline' | 'update' | 'document'
+/** 'stage': the body of one pipeline stage (CompleteOptions.stage names its operator). */
+export type CompletionMode =
+  'filter' | 'project' | 'sort' | 'collation' | 'pipeline' | 'update' | 'document' | 'stage'
 
 export type SuggestionKind =
   | 'field'
@@ -95,9 +97,11 @@ const QUERY_FIELD_OPS = new Set(QUERY_OPERATORS.map((o) => o.name))
 const UPDATE_FIELD_OPS = new Set(UPDATE_OPERATORS.map((o) => o.name).filter((n) => n !== '$bit'))
 const EXPR_BY_NAME = new Map([...EXPRESSIONS, ...ACCUMULATORS].map((o) => [o.name, o]))
 
-function rootScope(mode: CompletionMode, kind: Frame['kind']): Scope {
+function rootScope(mode: CompletionMode, kind: Frame['kind'], stage?: string): Scope {
   const isArray = kind === 'array'
   switch (mode) {
+    case 'stage':
+      return stageChild(stage ?? null, kind)
     case 'filter':
       return { type: 'query', prefix: '' }
     case 'project':
@@ -260,9 +264,9 @@ function arrayChild(scope: Scope, kind: Frame['kind']): Scope {
   }
 }
 
-export function resolveScope(mode: CompletionMode, frames: Frame[]): Scope {
+export function resolveScope(mode: CompletionMode, frames: Frame[], stage?: string): Scope {
   if (!frames.length) return LITERAL
-  let scope = rootScope(mode, frames[0]!.kind)
+  let scope = rootScope(mode, frames[0]!.kind, stage)
   for (let i = 0; i < frames.length - 1; i++) {
     const f = frames[i]!
     const next = frames[i + 1]!.kind
@@ -283,6 +287,8 @@ export interface CompleteOptions {
   /** Sampled fields; `values` on a stat lists its distinct strings when there are few. */
   fields?: FieldStat[]
   now?: Date
+  /** Mode 'stage': the stage operator whose body is being edited ("$match"…). */
+  stage?: string
 }
 
 const order = {
@@ -542,13 +548,16 @@ function elementSuggestions(scope: Scope, ctx: CursorContext, o: CompleteOptions
 
 export function complete(text: string, offset: number, options: CompleteOptions): CompletionResult {
   const ctx = analyze(text, offset)
-  const scope = resolveScope(options.mode, ctx.frames)
+  const scope = resolveScope(options.mode, ctx.frames, options.stage)
   const inner = ctx.frames[ctx.frames.length - 1]
   let suggestions: Suggestion[] = []
   if (ctx.position === 'key') suggestions = keySuggestions(scope, ctx, options)
   else if (ctx.position === 'value') suggestions = valueSuggestions(scope, ctx, inner?.key ?? null, options)
   else if (ctx.position === 'element') suggestions = elementSuggestions(scope, ctx, options)
-  else if (ctx.position === 'root' && !text.trim()) {
+  else if (options.mode === 'stage' && ctx.position === 'root' && ctx.quote && ctx.prefix.startsWith('$'))
+    // A bare field path as the whole stage body: { $unwind: "$items" }, { $sortByCount: "$x" }
+    suggestions = fieldPathValues(ctx, options.fields ?? [])
+  else if (ctx.position === 'root' && !text.trim() && options.mode !== 'stage') {
     suggestions =
       options.mode === 'pipeline'
         ? [{ label: '[ ]', kind: 'snippet', insertText: '[\n  $0\n]', snippet: true, sortText: '0' }]

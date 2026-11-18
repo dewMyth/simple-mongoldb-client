@@ -406,7 +406,9 @@ export function QueryBar({
           {toolError}
         </div>
       )}
-      {exporting && <ExportCodeDialog ns={ns} query={query} onClose={() => setExporting(false)} />}
+      {exporting && (
+        <ExportCodeDialog ns={ns} source={{ kind: 'query', query }} onClose={() => setExporting(false)} />
+      )}
       {saving && <SaveQueryDialog ns={ns} query={query} onClose={() => setSaving(false)} />}
     </div>
   )

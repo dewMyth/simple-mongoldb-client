@@ -300,9 +300,9 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - "Create view from pipeline" (permission-gated).
 
 **Done when**
-- [ ] A 6-stage pipeline (`$match`, `$unwind`, `$group`, `$lookup`, `$project`, `$sort`) previews correctly at each stage
-- [ ] Text ↔ stage mode conversion round-trips the fixture pipelines exactly
-- [ ] `$out` never runs during preview (test)
+- [x] A 6-stage pipeline (`$match`, `$unwind`, `$group`, `$lookup`, `$project`, `$sort`) previews correctly at each stage
+- [x] Text ↔ stage mode conversion round-trips the fixture pipelines exactly
+- [x] `$out` never runs during preview (test)
 
 ---
 

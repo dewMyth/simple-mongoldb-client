@@ -76,3 +76,10 @@
   which asks for confirmation (features/connections/production-guard.ts). New write channels must be
   added to `WRITE_CHANNELS`. A declined write throws IpcError name 'CancelledError'.
 - Renderer-only unit tests go in tests/renderer (typechecked by tsconfig.web.json, not the node project).
+- Aggregation: src/shared/pipeline.ts holds the model and lossless text ↔ stages conversion (stage bodies
+  stay the user's own text; disabled stages are `// ` comments in text mode). Main's AggregationService
+  parses each body with parseShellValue. Previews run the prefix + $limit and must never contain
+  $out/$merge (`containsWriteStage`, checked recursively before sending). Previews run under the owner
+  "<tabId>#preview"; `cancelForTab(tabId)` also kills "<tabId>#…" sub-owners.
+- E2E: put multi-line text into Monaco by pasting (Electron clipboard + Cmd/Ctrl+V); typing it trips
+  bracket auto-closing. `.view-lines` innerText isn't in line order for multi-line content.

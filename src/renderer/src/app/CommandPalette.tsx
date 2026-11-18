@@ -4,7 +4,8 @@
  */
 import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Columns2, CopyPlus, History, Info, Rows2, RotateCcw, Table2, X } from 'lucide-react'
+import { Columns2, CopyPlus, History, Info, Rows2, RotateCcw, Table2, Workflow, X } from 'lucide-react'
+import { openAggregation } from '../features/aggregation/open'
 import type { QueryText } from '@shared/query'
 import {
   CommandDialog,
@@ -79,6 +80,7 @@ export function CommandPalette() {
   const close = () => setOpen(false)
   const store = useTabsStore.getState
   const current = split && store().focusedPane === 'secondary' ? split.tabId : activeId
+  const currentTab = tabs.find((t) => t.id === current)
 
   const runRecent = (connectionId: string, ns: string, query: QueryText) => {
     const tabId = store().open(
@@ -172,6 +174,16 @@ export function CommandPalette() {
           )}
           {current && (
             <>
+              {currentTab?.ns && (
+                <CommandItem
+                  value="command open aggregation builder"
+                  onSelect={act(() =>
+                    openAggregation(currentTab.connectionId, currentTab.ns!, currentTab.query.filter)
+                  )}
+                >
+                  <Workflow /> Open aggregation for {currentTab.ns}
+                </CommandItem>
+              )}
               <CommandItem value="command duplicate tab" onSelect={act(() => store().duplicate(current))}>
                 <CopyPlus /> Duplicate tab
               </CommandItem>
