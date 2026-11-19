@@ -1,4 +1,5 @@
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -57,11 +58,16 @@ async function launchOnce(userData: string): Promise<{ app: ElectronApplication;
   const output: string[] = []
   app.process().stdout?.on('data', (d) => output.push(String(d)))
   app.process().stderr?.on('data', (d) => output.push(String(d)))
-  const kill = () => {
-    try {
-      app.process().kill('SIGKILL')
-    } catch {
-      /* already gone */
+  // Kills the app and every process it started: on Linux, Chromium's zygote/GPU/renderer processes
+  // outlive a killed main process and keep Playwright's pipes open (the worker then never tears down).
+  const pid = app.process().pid
+  const kill = (tree = descendants(pid)) => {
+    for (const p of [...tree, pid]) {
+      try {
+        if (p) process.kill(p, 'SIGKILL')
+      } catch {
+        /* already gone */
+      }
     }
   }
   const report = (what: string) =>
@@ -72,8 +78,9 @@ async function launchOnce(userData: string): Promise<{ app: ElectronApplication;
   // A lost connection would otherwise make close() hang until the worker teardown timeout.
   app.close = async () => {
     closing = true
+    const tree = descendants(pid) // before closing: afterwards the survivors are re-parented
     await Promise.race([close(), new Promise((r) => setTimeout(r, 10_000))])
-    kill()
+    kill(tree)
   }
 
   let page: Page
@@ -154,4 +161,29 @@ async function launchOnce(userData: string): Promise<{ app: ElectronApplication;
     if (!closing) report(`Main process exited unexpectedly with code ${code}, signal ${signal}`)
   })
   return { app, page }
+}
+
+/** Process ids started (transitively) by `pid`. Empty on Windows, where the process tree is killed differently. */
+function descendants(pid: number | undefined): number[] {
+  if (!pid || process.platform === 'win32') return []
+  let table: string
+  try {
+    table = execFileSync('ps', ['-A', '-o', 'pid=,ppid='], { encoding: 'utf8' })
+  } catch {
+    return []
+  }
+  const children = new Map<number, number[]>()
+  for (const line of table.split('\n')) {
+    const [c, p] = line.trim().split(/\s+/).map(Number)
+    if (c && p) children.set(p, [...(children.get(p) ?? []), c])
+  }
+  const out: number[] = []
+  const walk = (p: number) => {
+    for (const c of children.get(p) ?? []) {
+      out.push(c)
+      walk(c)
+    }
+  }
+  walk(pid)
+  return out
 }

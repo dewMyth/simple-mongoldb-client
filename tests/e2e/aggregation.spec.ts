@@ -106,7 +106,9 @@ test('Done when: a 6-stage pipeline previews correctly at each stage; text ↔ s
     // Reorder: menu and drag and drop.
     await page.getByTestId('stage-card').nth(4).getByTestId('stage-menu').click()
     await page.getByTestId('stage-move-down').click()
-    expect(await operators(page)).toEqual(['$match', '$unwind', '$group', '$lookup', '$sort', '$project'])
+    await expect
+      .poll(() => operators(page))
+      .toEqual(['$match', '$unwind', '$group', '$lookup', '$sort', '$project'])
     await page
       .getByTestId('stage-card')
       .nth(5)
@@ -114,7 +116,9 @@ test('Done when: a 6-stage pipeline previews correctly at each stage; text ↔ s
       .dragTo(page.getByTestId('stage-card').nth(4).locator('.border-b').first(), {
         targetPosition: { x: 200, y: 2 }
       })
-    expect(await operators(page)).toEqual(['$match', '$unwind', '$group', '$lookup', '$project', '$sort'])
+    await expect
+      .poll(() => operators(page))
+      .toEqual(['$match', '$unwind', '$group', '$lookup', '$project', '$sort'])
   } finally {
     await app.close()
   }

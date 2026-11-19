@@ -2,7 +2,7 @@
 
 1. Bump `version` in package.json (e.g. `0.2.0`), commit.
 2. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
-3. The **Release** workflow (`.github/workflows/release.yml`) builds on macOS, Windows and Linux,
+3. The **Release** workflow (`.github/workflows/release.yml`) builds on macOS and Windows (Linux is paused),
    runs the smoke test (`tests/e2e/smoke.spec.ts`: connect with a saved password, query, edit,
    export, shell) against each packaged app, then publishes a GitHub Release with the installers
    and `SHA256SUMS.txt`. The tag must match package.json's version.
@@ -12,11 +12,11 @@ package: `E2E_EXECUTABLE="<path to the app's executable>" npx playwright test sm
 
 ## Targets
 
-| OS      | Target                       | Notes                                                        |
-| ------- | ---------------------------- | ------------------------------------------------------------ |
-| macOS   | dmg, universal (arm64 + x64) | Native modules are merged per architecture (`x64ArchFiles`). |
-| Windows | NSIS installer, x64          | Per-user or per-machine, choice of folder.                   |
-| Linux   | AppImage, x64                | Saved passwords need a Secret Service keyring.               |
+| OS      | Target                       | Notes                                                                                                                                                                                     |
+| ------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS   | dmg, universal (arm64 + x64) | Native modules are merged per architecture (`x64ArchFiles`).                                                                                                                              |
+| Windows | NSIS installer, x64          | Per-user or per-machine, choice of folder.                                                                                                                                                |
+| Linux   | AppImage, x64 (paused in CI) | Not built by CI for now. Needs a Secret Service keyring; E2E runs through `scripts/linux-e2e.sh`, but on CI the Playwright worker hit its teardown timeout after all tests passed (open). |
 
 `asarUnpack` keeps the mongosh worker package and every `.node` file outside the asar: the shell's
 worker thread and native modules must be real files. ssh2's optional native ciphers are left out (it
@@ -40,7 +40,7 @@ The installers are currently unsigned. To sign, add these repository secrets and
 - `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` for a .pfx, or the `azureSignOptions` config for Trusted
   Signing. EV certificates live on hardware tokens and need a cloud signing service in CI.
 
-**Linux** AppImages are not signed; the checksums file is the integrity check.
+**Linux** (when re-enabled): AppImages are not signed; the checksums file is the integrity check.
 
 ## Auto-update (not enabled)
 

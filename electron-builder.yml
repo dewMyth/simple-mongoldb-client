@@ -37,6 +37,7 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   artifactName: Mongo-Studio-${version}-win-${arch}-setup.${ext}
+# Linux (AppImage) is not built by the release workflow for now.
 linux:
   category: Development
   target:

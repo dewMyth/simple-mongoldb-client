@@ -43,17 +43,15 @@ Download the installer for your OS from the
 | ------- | -------------------------------------------------------------------- |
 | macOS   | `Mongo-Studio-<version>-mac-universal.dmg` (Apple silicon and Intel) |
 | Windows | `Mongo-Studio-<version>-win-x64-setup.exe`                           |
-| Linux   | `Mongo-Studio-<version>-linux-x64.AppImage`                          |
 
 The installers are **not code-signed yet**, so the OS warns on first launch:
 
 - **macOS:** open the app once from Finder with right-click → Open, or run
   `xattr -dr com.apple.quarantine "/Applications/Mongo Studio.app"`.
 - **Windows:** SmartScreen → More info → Run anyway.
-- **Linux:** `chmod +x Mongo-Studio-*.AppImage` and run it. Saved passwords need a keyring
-  (GNOME Keyring or KWallet).
 
-`SHA256SUMS.txt` in each release lists the files' checksums.
+`SHA256SUMS.txt` in each release lists the files' checksums. Linux builds are paused for now
+(`npm run dist -- --linux` builds an AppImage locally).
 
 ## Compared with MongoDB Compass
 

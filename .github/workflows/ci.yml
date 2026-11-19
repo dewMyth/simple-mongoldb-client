@@ -10,7 +10,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        # Linux is paused for now (scripts/linux-e2e.sh has its E2E setup).
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -26,11 +27,5 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: E2E (Linux needs a virtual display and a keyring)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb dbus-x11 gnome-keyring
-          scripts/linux-e2e.sh npx playwright test
       - name: E2E
-        if: runner.os != 'Linux'
         run: npx playwright test

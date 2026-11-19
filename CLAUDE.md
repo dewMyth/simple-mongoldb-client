@@ -125,13 +125,13 @@
   Never log documents, queries or server error messages (they can quote values): IPC failures log
   channel + error name + code only. Everything passes through `redact`.
 - Packaging: electron-builder.yml (dmg universal, nsis, AppImage → release/). Unsigned; signing notes in
-  docs/release.md. Tag `vX.Y.Z` (= package.json version) → .github/workflows/release.yml builds, smoke-tests
+  docs/release.md. Tag `vX.Y.Z` (= package.json version) → .github/workflows/release.yml builds (macOS + Windows; Linux paused), smoke-tests
   the packaged apps and publishes the GitHub Release. Icon: build/icon.svg → `npx electron scripts/render-icon.mjs`.
 - Renderer-only packages (bundled by Vite) belong in devDependencies; `dependencies` are shipped in the
   app's node_modules.
 - E2E window is fixed at 1400x900 (`E2E_WINDOW=WxH` overrides; main allows larger-than-screen under
   `MONGO_STUDIO_E2E`). `E2E_EXECUTABLE` runs specs against a packaged app (tests/e2e/smoke.spec.ts).
-  Linux CI needs scripts/linux-e2e.sh (xvfb + unlocked gnome-keyring): without a keyring the app
+  CI runs macOS + Windows only (Linux paused by user decision). Linux E2E needs scripts/linux-e2e.sh (xvfb + unlocked gnome-keyring): without a keyring the app
   rightly refuses to save passwords.
   Playwright's Electron loader appends `--password-store=basic` (and a mock keychain on macOS); the
   harness passes `--password-store=gnome-libsecret` on Linux and main re-applies an explicit
