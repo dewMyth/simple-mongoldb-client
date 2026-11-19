@@ -9,3 +9,4 @@ playwright-report
 *.log
 bench-results.json
 .venv-codegen
+*.tsbuildinfo

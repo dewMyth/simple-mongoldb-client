@@ -1,0 +1,5 @@
+# Prettier expects LF; keep Windows checkouts from converting to CRLF.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.icns binary
