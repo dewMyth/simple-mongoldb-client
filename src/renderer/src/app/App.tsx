@@ -10,6 +10,8 @@ import { MainPanel } from './MainPanel'
 import { StatusBar } from './StatusBar'
 import { CommandPalette } from './CommandPalette'
 import { useWorkspaceShortcuts } from './shortcuts'
+import { AppDialogs } from './AppDialogs'
+import { useJobEvents } from '../stores/jobs'
 
 installProductionGuard()
 
@@ -17,6 +19,7 @@ export function App() {
   const init = useThemeStore((s) => s.init)
   usePermissionEvents()
   useWorkspaceShortcuts()
+  useJobEvents()
   useEffect(() => {
     void init()
     void initWorkspace()
@@ -34,6 +37,7 @@ export function App() {
       <StatusBar />
       <CommandPalette />
       <ProductionConfirmDialog />
+      <AppDialogs />
     </div>
   )
 }

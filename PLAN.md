@@ -349,9 +349,9 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - Permission gating on import.
 
 **Done when**
-- [ ] Export then import of the "all types" fixture collection via EJSON is lossless (BSON compare)
-- [ ] Exporting 1M docs keeps main-process memory < 300 MB
-- [ ] Schema of the fixture collection reports mixed-type fields correctly
+- [x] Export then import of the "all types" fixture collection via EJSON is lossless (BSON compare)
+- [x] Exporting 1M docs keeps main-process memory < 300 MB _(291 MB peak RSS, 213 MB idle; see docs/perf.md)_
+- [x] Schema of the fixture collection reports mixed-type fields correctly
 
 ---
 

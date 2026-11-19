@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { registerIpcHandlers } from './ipc'
 import { applyGlobalSecurity, hardenWebContents } from './security'
 import { settingsStore } from './services/settings-store'
-import { connections, cursors, shells } from './services'
+import { connections, cursors, importExport, shells } from './services'
 
 const here = import.meta.dirname
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
@@ -55,7 +55,7 @@ app.on('before-quit', (event) => {
   // Close MongoClients and SSH tunnels cleanly so server-side cursors and sessions are released.
   event.preventDefault()
   quitting = true
-  void Promise.all([cursors.cancelAll(), shells.closeAll()])
+  void Promise.all([cursors.cancelAll(), shells.closeAll(), importExport.cancelAll()])
     .then(() => connections.disconnectAll())
     .finally(() => app.quit())
 })

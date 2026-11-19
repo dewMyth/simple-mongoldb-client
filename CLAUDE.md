@@ -101,3 +101,19 @@
   `electron-builder install-app-deps`. Vitest (plain Node) must not import the shell runtime.
 - E2E shell tests read `shell-last-output` (aria-live, plain text, `data-runs` counts commands): xterm only
   renders visible rows.
+- Import/export: main's ImportExportService streams both ways (cursor batches + write backpressure;
+  file read in 1 MB chunks, inserts of 1,000 `ordered: false`). Files only via tokens from main's own
+  dialogs (`files:chooseExport/chooseImport` → registerFile); never accept paths from the renderer.
+  Progress: `jobs:progress` events → stores/jobs.ts (status bar + dialogs). A cancelled/failed export
+  deletes its partial file. Canonical EJSON round-trips byte-identically (tests/integration/import-export).
+- E2E file dialogs: stub `dialog.showSaveDialog/showOpenDialog` in main with `app.evaluate` (see
+  tests/e2e/import-export.spec.ts). The 1M-doc export memory check is opt-in: `PERF=1` (perf-export.spec.ts).
+- Schema tab: main's SchemaService.analyze ($match + $sample, mongodb-schema with exact BSON types) →
+  services/schema-analysis.ts builds fields, type shares and charts; `query:setFilterField` toggles a value.
+- Zustand selectors must return stable values: `useStore((s) => Object.values(s.x))` re-renders forever
+  (React #185). Select the object and derive outside the selector.
+- E2E harness (tests/e2e/app.ts): Playwright's Electron support sometimes loses the page connection
+  while the app is fine (window open, no navigation or crash). launchApp retries a launch that fails
+  before the tab bar renders, app.close() is time-limited with a SIGKILL fallback, the config allows
+  one retry (reported as "flaky"), and every occurrence logs evidence prefixed "[e2e]". If "[e2e]"
+  lines show a renderer crash, navigation or main exit instead, that's a real app bug.

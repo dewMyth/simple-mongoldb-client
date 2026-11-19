@@ -31,6 +31,14 @@ import { workspaceSchema, type Workspace } from './workspace'
 import { createIndexSchema, type IndexBuild, type IndexInfo } from './indexes'
 import { explainSourceSchema, type ExplainResult } from './explain'
 import type { ShellEvalResult, ShellSessionInfo } from './shell'
+import type { SchemaResult } from './schema'
+import {
+  exportStartSchema,
+  importStartSchema,
+  type ChosenFile,
+  type ImportPreview,
+  type JobProgress
+} from './import-export'
 import {
   pipelineOptionsSchema,
   pipelineStageSchema,
@@ -155,6 +163,20 @@ export const shellStartSchema = z.object({
 })
 const sessionId = z.string().min(1).max(100)
 export const shellCodeSchema = z.object({ sessionId, code: z.string().max(5_000_000) })
+
+export const schemaAnalyzeSchema = z.object({
+  connectionId: connId,
+  ns: nsSchema,
+  tabId: z.string().nullable().optional(),
+  sampleSize: z.number().int().min(1).max(100_000),
+  filter: z.string().max(1_000_000)
+})
+export const setFilterFieldSchema = z.object({
+  filter: z.string().max(1_000_000),
+  path: z.string().min(1).max(1000),
+  valueText: z.string().max(100_000)
+})
+const fileToken = z.string().min(1).max(100)
 
 export type ExportCodeResult = { ok: true; code: string } | { ok: false; errors: QueryFieldError[] }
 
@@ -301,6 +323,27 @@ export const ipcContract = {
   'shell:interrupt': channel<typeof sessionId, boolean>(sessionId),
   'shell:complete': channel<typeof shellCodeSchema, string[]>(shellCodeSchema),
   'shell:close': channel<typeof sessionId, void>(sessionId),
+  /** Schema tab: analyse a sample (optionally filtered) with types, presence and charts. */
+  'schema:analyze': channel<typeof schemaAnalyzeSchema, SchemaResult>(schemaAnalyzeSchema),
+  /** Sets (or toggles off) one field in filter text. Null if the filter doesn't parse. */
+  'query:setFilterField': channel<typeof setFilterFieldSchema, string | null>(setFilterFieldSchema),
+
+  /** Native save dialog; main remembers the path and returns a token for export:start. */
+  'files:chooseExport': channel<z.ZodObject<{ defaultName: z.ZodString }>, ChosenFile | null>(
+    z.object({ defaultName: z.string().min(1).max(255) })
+  ),
+  /** Native open dialog; main remembers the path and returns a token for import. */
+  'files:chooseImport': channel<z.ZodVoid, ChosenFile | null>(z.void()),
+  'export:start': channel<typeof exportStartSchema, JobProgress>(exportStartSchema),
+  'import:preview': channel<
+    z.ZodObject<{ token: typeof fileToken; format: z.ZodOptional<z.ZodEnum<{ json: 'json'; csv: 'csv' }>> }>,
+    ImportPreview
+  >(z.object({ token: fileToken, format: z.enum(['json', 'csv']).optional() })),
+  /** Starts an import (permission-checked: insert on the target collection). */
+  'import:start': channel<typeof importStartSchema, JobProgress>(importStartSchema),
+  'jobs:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
+  /** Shows a finished export's file in the OS file manager. */
+  'jobs:reveal': channel<z.ZodString, void>(z.string().min(1)),
   'ops:cancel': channel<z.ZodString, boolean>(z.string().min(1)),
   /** Kills every cursor and operation owned by a tab (Esc, or the tab was closed). */
   'ops:cancelForTab': channel<z.ZodString, number>(z.string().min(1)),
@@ -383,11 +426,14 @@ export interface IpcEvents {
   'permissions:changed': PermissionSnapshot
   /** Text printed by a running shell command (print(), console.log…). */
   'shell:output': { sessionId: string; text: string }
+  /** Import/export progress (throttled) and completion. */
+  'jobs:progress': JobProgress
 }
 export type EventName = keyof IpcEvents
 export const ipcEventNames: EventName[] = [
   'settings:changed',
   'connections:activeChanged',
   'permissions:changed',
-  'shell:output'
+  'shell:output',
+  'jobs:progress'
 ]

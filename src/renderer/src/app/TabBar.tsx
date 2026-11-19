@@ -1,6 +1,18 @@
 import { cn } from '@renderer/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
-import { Columns2, Gauge, Info, KeyRound, Lock, Pin, Table2, SquareTerminal, Workflow, X } from 'lucide-react'
+import {
+  ChartColumn,
+  Columns2,
+  Gauge,
+  Info,
+  KeyRound,
+  Lock,
+  Pin,
+  Table2,
+  SquareTerminal,
+  Workflow,
+  X
+} from 'lucide-react'
 import { ContextMenu, type MenuItem } from '../components/Menu'
 import { isReadOnly } from '@shared/permissions'
 import { ipc } from '../lib/ipc'
@@ -43,7 +55,9 @@ export function TabBar() {
                   ? Gauge
                   : t.type === 'shell'
                     ? SquareTerminal
-                    : Table2
+                    : t.type === 'schema'
+                      ? ChartColumn
+                      : Table2
         const pane = t.id === activeId ? 'primary' : t.id === split?.tabId ? 'secondary' : null
         const focused = pane !== null && (!split || pane === focusedPane)
         const items: MenuItem[] = [

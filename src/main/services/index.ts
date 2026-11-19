@@ -6,6 +6,7 @@ import { AggregationService } from './aggregation-service'
 import { IndexService } from './index-service'
 import { ExplainService } from './explain-service'
 import { ShellService } from './shell/shell-service'
+import { ImportExportService } from './import-export/import-export-service'
 import { BrowserWindow } from 'electron'
 import { isReadOnly } from '@shared/permissions'
 import { PipelineLibrary } from './pipeline-library'
@@ -84,3 +85,6 @@ export const shells = new ShellService(
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send('shell:output', { sessionId, text })
   }
 )
+export const importExport = new ImportExportService(connections, cursors, (progress) => {
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send('jobs:progress', progress)
+})

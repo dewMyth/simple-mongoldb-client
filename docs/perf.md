@@ -80,3 +80,30 @@ npx tsx scripts/seed-bench.ts mongodb://127.0.0.1:27999                  # ~30 s
 npm run build
 npx tsx scripts/bench-ui.ts mongodb://127.0.0.1:27999 2000               # ~2.5 min, writes bench-results.json
 ```
+
+# Export memory (Phase 12)
+
+Measured on 19 Nov 2026 with `PERF=1 npx playwright test tests/e2e/perf-export.spec.ts` (built app,
+same machine): 1,000,000 documents (~230 bytes each: nested object, array of sub-documents,
+Double, Date) exported as canonical-EJSON JSON lines through the UI. Main-process memory is
+sampled inside the main process every 10 ms.
+
+| Budget                                 | Target   | Result                                                 |     |
+| -------------------------------------- | -------- | ------------------------------------------------------ | --- |
+| Main-process memory while exporting 1M | < 300 MB | **291 MB** peak RSS (213 MB idle), 2.3 s, ~425k docs/s | ✅  |
+
+How it stays flat: the cursor returns raw BSON (`raw: true`), each document is written as
+EJSON straight from its bytes (`ejson-writer.ts`, byte-identical to `EJSON.stringify`, no
+decoded objects), output goes through one reusable 1 MB buffer, and nothing awaits per document.
+
+| Version                                                 | Peak RSS           |
+| ------------------------------------------------------- | ------------------ |
+| Decode each batch + `EJSON.stringify` + a write per doc | 350–357 MB         |
+| Raw cursor, decode one at a time, 256 KB string chunks  | 291–355 MB (noisy) |
+| Direct BSON → EJSON writer                              | 291–296 MB         |
+| + reusable output buffer, no per-document await         | 291 MB             |
+
+The margin is small: what remains is V8 growing its young generation under the allocation rate
+(JS heap capacity 30 → 99 MB while live data stays ~30–60 MB); the idle 213 MB is mostly
+Electron's own native memory. Writing bytes straight from BSON with no per-value strings would
+cut it further if a slower machine ever goes over.

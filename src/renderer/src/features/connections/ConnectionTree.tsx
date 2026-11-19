@@ -11,6 +11,8 @@ import { formatBytes, formatCount } from '../../lib/format'
 import { useTabsStore } from '../../stores/tabs'
 import { openAggregation } from '../aggregation/open'
 import { openIndexes } from '../indexes/open'
+import { openSchema } from '../schema/open'
+import { useDialogStore } from '../../stores/dialogs'
 import { openShell } from '../shell/open'
 import { colorHex } from './colors'
 import { ConnectionDialog } from './ConnectionDialog'
@@ -493,6 +495,17 @@ function CollectionNode({
     { label: 'Open in new tab', onSelect: () => open(true) },
     { label: 'Open aggregation', onSelect: () => openAggregation(connId, ns) },
     { label: 'Indexes', onSelect: () => openIndexes(connId, ns) },
+    { label: 'Schema', onSelect: () => openSchema(connId, ns) },
+    {
+      label: 'Export collection…',
+      onSelect: () =>
+        useDialogStore.getState().open({ kind: 'export', connectionId: connId, ns, query: null }),
+      separatorBefore: true
+    },
+    {
+      label: 'Import into collection…',
+      onSelect: () => useDialogStore.getState().open({ kind: 'import', connectionId: connId, ns })
+    },
     {
       label: coll.type === 'view' ? 'Drop view…' : 'Drop collection…',
       danger: true,

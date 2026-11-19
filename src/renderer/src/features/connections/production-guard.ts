@@ -54,6 +54,8 @@ export function describeWrite(channel: Channel, input: unknown): string {
       return `Drop the collection ${i.db}.${i.name}`
     case 'db:dropDatabase':
       return `Drop the database ${i.db}`
+    case 'import:start':
+      return `Import documents into ${i.ns}`
     case 'indexes:create':
       return `Create an index ${(input as { form: { keys: string } }).form.keys.trim()} on ${i.ns}`
     case 'indexes:drop':

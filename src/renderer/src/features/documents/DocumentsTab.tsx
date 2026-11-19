@@ -12,6 +12,7 @@ import {
   ListTree,
   MoreHorizontal,
   Plus,
+  ChartColumn,
   KeyRound,
   Sheet,
   Workflow
@@ -38,6 +39,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '../../components/ui/dropdown-menu'
 import { ReasonText } from '../../components/ReasonText'
@@ -49,6 +51,8 @@ import { BulkDeleteDialog, BulkUpdateDialog } from './editing/BulkDialogs'
 import { useWriteCheck } from './editing/use-write-check'
 import { openAggregation } from '../aggregation/open'
 import { openIndexes } from '../indexes/open'
+import { openSchema } from '../schema/open'
+import { useDialogStore } from '../../stores/dialogs'
 
 /** The document being edited, tied to the page request it belongs to. */
 interface Editing {
@@ -72,6 +76,7 @@ interface ExpandRequest {
 export function DocumentsTab({ tab }: { tab: Tab }) {
   const setQuery = useTabsStore((s) => s.setQuery)
   const setViewMode = useTabsStore((s) => s.setViewMode)
+  const openDialog = useDialogStore((s) => s.open)
   const [expand, setExpand] = useState<ExpandRequest>({ epoch: 0, mode: 'default' })
   const results = useResultsStore((s) => s.byTab[tab.id]) ?? useResultsStore.getState().get(tab.id)
   const run = useResultsStore((s) => s.run)
@@ -153,6 +158,16 @@ export function DocumentsTab({ tab }: { tab: Tab }) {
           onInsert={() => setInserting(EMPTY_INSERT)}
           onAggregate={() => openAggregation(tab.connectionId, ns, tab.query.filter)}
           onIndexes={() => openIndexes(tab.connectionId, ns)}
+          onSchema={() => openSchema(tab.connectionId, ns, tab.query.filter)}
+          onExport={() =>
+            openDialog({
+              kind: 'export',
+              connectionId: tab.connectionId,
+              ns,
+              query: results.ranQuery ?? tab.query
+            })
+          }
+          onImport={() => openDialog({ kind: 'import', connectionId: tab.connectionId, ns })}
           onBulk={setBulk}
         />
         <ResultsList tabId={tab.id} viewMode={tab.viewMode} expand={expand} {...editingProps} />
@@ -190,6 +205,9 @@ function ResultsHeader({
   onInsert,
   onAggregate,
   onIndexes,
+  onSchema,
+  onExport,
+  onImport,
   onBulk
 }: {
   tabId: string
@@ -200,6 +218,9 @@ function ResultsHeader({
   onInsert: () => void
   onAggregate: () => void
   onIndexes: () => void
+  onSchema: () => void
+  onExport: () => void
+  onImport: () => void
   onBulk: (kind: 'update' | 'delete') => void
 }) {
   const r = useResultsStore((s) => s.byTab[tabId])
@@ -271,6 +292,16 @@ function ResultsHeader({
           <KeyRound /> Indexes
         </Button>
         <Button
+          variant="ghost"
+          size="sm"
+          className="h-6"
+          title="Schema analysis of this collection"
+          onClick={onSchema}
+          data-testid="open-schema"
+        >
+          <ChartColumn /> Schema
+        </Button>
+        <Button
           variant="outline"
           size="sm"
           className="h-6"
@@ -288,6 +319,23 @@ function ResultsHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72 text-xs">
+            <DropdownMenuItem onSelect={onExport} data-testid="menu-export">
+              Export…
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={onImport}
+              disabled={!canInsert.allowed}
+              className="flex-col items-start gap-0"
+              data-testid="menu-import"
+            >
+              Import…
+              {!canInsert.allowed && canInsert.reason && (
+                <span className="text-[11px] text-muted-foreground">
+                  <ReasonText text={canInsert.reason} />
+                </span>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {(
               [
                 ['update', 'Update matching documents…', canUpdate],

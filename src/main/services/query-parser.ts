@@ -231,3 +231,22 @@ export function parseShellValue(text: string): FieldResultPublic {
 }
 
 export type FieldResultPublic = FieldResult
+
+/**
+ * Schema tab: sets `path` to a value (shell syntax) in the filter text, or removes it when it
+ * already has exactly that value (clicking a chart bar again toggles it off). Null if the
+ * filter doesn't parse.
+ */
+export function setFilterField(filterText: string, path: string, valueText: string): string | null {
+  const f = parseQueryField('filter', filterText)
+  if (!f.ok) return null
+  const v = parseShellValue(valueText)
+  if (!v.ok) return null
+  const filter = { ...(f.value as Document) }
+  const same = path in filter && toShellString(filter[path], 0) === toShellString(v.value, 0)
+  if (same) delete filter[path]
+  else filter[path] = v.value
+  if (!Object.keys(filter).length) return ''
+  const oneLine = toShellString(filter, 0)
+  return oneLine.length <= 80 ? oneLine : toShellString(filter, 2)
+}

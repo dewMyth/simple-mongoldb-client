@@ -5,8 +5,10 @@
 import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import {
+  ChartColumn,
   Columns2,
   CopyPlus,
+  Download,
   Gauge,
   History,
   Info,
@@ -15,12 +17,15 @@ import {
   Rows2,
   SquareTerminal,
   Table2,
+  Upload,
   Workflow,
   X
 } from 'lucide-react'
 import { openAggregation } from '../features/aggregation/open'
 import { openExplain, openIndexes } from '../features/indexes/open'
 import { openShell } from '../features/shell/open'
+import { openSchema } from '../features/schema/open'
+import { useDialogStore } from '../stores/dialogs'
 import type { QueryText } from '@shared/query'
 import {
   CommandDialog,
@@ -224,6 +229,41 @@ export function CommandPalette() {
                 >
                   <KeyRound /> Indexes of {currentTab.ns}
                 </CommandItem>
+              )}
+              {currentTab?.ns?.includes('.') && (
+                <>
+                  <CommandItem
+                    value="command schema analysis"
+                    onSelect={act(() =>
+                      openSchema(currentTab.connectionId, currentTab.ns!, currentTab.query.filter)
+                    )}
+                  >
+                    <ChartColumn /> Schema of {currentTab.ns}
+                  </CommandItem>
+                  <CommandItem
+                    value="command export"
+                    onSelect={act(() =>
+                      useDialogStore.getState().open({
+                        kind: 'export',
+                        connectionId: currentTab.connectionId,
+                        ns: currentTab.ns!,
+                        query: currentTab.type === 'documents' ? currentTab.query : null
+                      })
+                    )}
+                  >
+                    <Download /> Export {currentTab.ns}…
+                  </CommandItem>
+                  <CommandItem
+                    value="command import"
+                    onSelect={act(() =>
+                      useDialogStore
+                        .getState()
+                        .open({ kind: 'import', connectionId: currentTab.connectionId, ns: currentTab.ns! })
+                    )}
+                  >
+                    <Upload /> Import into {currentTab.ns}…
+                  </CommandItem>
+                </>
               )}
               {currentTab?.ns && currentTab.type === 'documents' && (
                 <CommandItem
