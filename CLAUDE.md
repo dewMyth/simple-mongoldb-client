@@ -133,5 +133,8 @@
   `MONGO_STUDIO_E2E`). `E2E_EXECUTABLE` runs specs against a packaged app (tests/e2e/smoke.spec.ts).
   Linux CI needs scripts/linux-e2e.sh (xvfb + unlocked gnome-keyring): without a keyring the app
   rightly refuses to save passwords.
+  Playwright's Electron loader appends `--password-store=basic` (and a mock keychain on macOS); the
+  harness passes `--password-store=gnome-libsecret` on Linux and main re-applies an explicit
+  `--password-store` from argv so it wins.
 - Results toolbar (DocumentsTab) is a container: labels hide below @6xl and the row wraps rather than
   overlapping the pager. Check narrow layouts with `E2E_WINDOW=900x600`.

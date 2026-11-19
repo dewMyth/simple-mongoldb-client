@@ -41,6 +41,12 @@ function createWindow(): BrowserWindow {
 
 app.setName('Mongo Studio')
 
+// An explicit --password-store on our command line wins over one appended at startup: Playwright's
+// Electron loader appends --password-store=basic (no encryption on Linux), and E2E needs a real keyring.
+const passwordStore = process.argv.find((a) => a.startsWith('--password-store='))
+if (passwordStore)
+  app.commandLine.appendSwitch('password-store', passwordStore.slice('--password-store='.length))
+
 process.on('uncaughtException', (err) => log.error('uncaught exception', {}, err))
 process.on('unhandledRejection', (reason) => log.error('unhandled rejection', {}, reason))
 app.on('render-process-gone', (_e, _wc, details) =>
