@@ -45,7 +45,7 @@ describe('FileLog', () => {
     log.write('info', 'connected', { id: 'c1', hosts: 'a:1', ssh: false })
     log.write('error', 'uncaught exception', {}, new Error('boom at mongodb://u:pw@h'))
     const text = readFileSync(join(dir, 'main.log'), 'utf8')
-    expect(text).toMatch(/^\S+Z INFO  connected id="c1" hosts="a:1" ssh=false\n/)
+    expect(text).toMatch(/^\S+Z INFO {2}connected id="c1" hosts="a:1" ssh=false\n/)
     expect(text).toContain('Error: boom at mongodb://<credentials>@h')
     expect(text).not.toContain('pw')
   })
