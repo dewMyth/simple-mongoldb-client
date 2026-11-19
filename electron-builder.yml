@@ -1,0 +1,48 @@
+# Installers: `npm run dist` (current OS). Output in release/.
+# Unsigned for now: see docs/release.md for macOS signing/notarization and Windows signing.
+appId: dev.mongostudio.app
+productName: Mongo Studio
+copyright: Copyright © 2026 Mongo Studio contributors
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+  # ssh2's optional native ciphers: it falls back to Node's crypto, and leaving them out keeps every
+  # architecture (incl. the universal macOS build) on the same code path.
+  - '!node_modules/ssh2/lib/protocol/crypto/build/**'
+asarUnpack:
+  # The shell runs this package's worker script in a worker thread, and native modules must be
+  # real files on disk.
+  - node_modules/@mongosh/node-runtime-worker-thread/**
+  - '**/*.node'
+npmRebuild: true
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [universal]
+  # Native modules differ per architecture; @electron/universal keeps both slices.
+  x64ArchFiles: '**/*.node'
+  identity: null
+dmg:
+  artifactName: Mongo-Studio-${version}-mac-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Mongo-Studio-${version}-win-${arch}-setup.${ext}
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64]
+  maintainer: Mongo Studio contributors
+appImage:
+  artifactName: Mongo-Studio-${version}-linux-${arch}.${ext}
+publish: null

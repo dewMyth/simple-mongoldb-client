@@ -45,10 +45,14 @@ export async function launchApp(
 
 async function launchOnce(userData: string): Promise<{ app: ElectronApplication; page: Page }> {
   const t0 = Date.now()
-  const app = await electron.launch({
-    args: ['.', `--user-data-dir=${userData}`],
-    env: electronEnv()
-  })
+  const exe = process.env['E2E_EXECUTABLE']
+  const args = [`--user-data-dir=${userData}`]
+  // Headless Linux has no desktop session to pick the keyring from (see scripts/linux-e2e.sh).
+  if (process.platform === 'linux') args.push('--password-store=gnome-libsecret')
+  const app = await electron.launch(
+    // E2E_EXECUTABLE runs the tests against a packaged app (see tests/e2e/smoke.spec.ts).
+    exe ? { executablePath: exe, args, env: electronEnv() } : { args: ['.', ...args], env: electronEnv() }
+  )
   // Keep the main process's output: it's the evidence if something goes wrong.
   const output: string[] = []
   app.process().stdout?.on('data', (d) => output.push(String(d)))

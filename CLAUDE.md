@@ -117,3 +117,21 @@
   before the tab bar renders, app.close() is time-limited with a SIGKILL fallback, the config allows
   one retry (reported as "flaky"), and every occurrence logs evidence prefixed "[e2e]". If "[e2e]"
   lines show a renderer crash, navigation or main exit instead, that's a real app bug.
+- Settings: shared/settings.ts (`settingsSchema`, `normalizeSettings`), main's settings-store,
+  `settings:update` → `settings:changed` to every window; renderer stores/settings.ts
+  (`currentSettings()` for non-React code). Font size is the `--mono-size` CSS var. Page size stays 25.
+- Errors: `<ErrorBox error={err}>` and ErrorBoundary have "Copy details" (shared/error-details.ts).
+- Logging: main's services/log.ts (`log.info/warn/error`) → main.log in the logs folder, rotated at 5 MB.
+  Never log documents, queries or server error messages (they can quote values): IPC failures log
+  channel + error name + code only. Everything passes through `redact`.
+- Packaging: electron-builder.yml (dmg universal, nsis, AppImage → release/). Unsigned; signing notes in
+  docs/release.md. Tag `vX.Y.Z` (= package.json version) → .github/workflows/release.yml builds, smoke-tests
+  the packaged apps and publishes the GitHub Release. Icon: build/icon.svg → `npx electron scripts/render-icon.mjs`.
+- Renderer-only packages (bundled by Vite) belong in devDependencies; `dependencies` are shipped in the
+  app's node_modules.
+- E2E window is fixed at 1400x900 (`E2E_WINDOW=WxH` overrides; main allows larger-than-screen under
+  `MONGO_STUDIO_E2E`). `E2E_EXECUTABLE` runs specs against a packaged app (tests/e2e/smoke.spec.ts).
+  Linux CI needs scripts/linux-e2e.sh (xvfb + unlocked gnome-keyring): without a keyring the app
+  rightly refuses to save passwords.
+- Results toolbar (DocumentsTab) is a container: labels hide below @6xl and the row wraps rather than
+  overlapping the pager. Check narrow layouts with `E2E_WINDOW=900x600`.

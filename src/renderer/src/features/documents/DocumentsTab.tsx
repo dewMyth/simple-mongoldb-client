@@ -418,7 +418,7 @@ function ResultsHeader({
 /** First / previous / page input / next / last, plus the "26–50" range. 25 documents per page. */
 /** A toolbar button label that hides in a narrow results pane (the icon and title remain). */
 function Label({ children }: { children: ReactNode }) {
-  return <span className="hidden @4xl/results:inline">{children}</span>
+  return <span className="hidden @6xl/results:inline">{children}</span>
 }
 
 function Pager({ tabId, r }: { tabId: string; r: TabResults }) {
