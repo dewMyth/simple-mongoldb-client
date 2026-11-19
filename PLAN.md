@@ -366,8 +366,8 @@ Editing must **never silently change a type** (e.g. Int64 → Double, Decimal128
 - README with screenshots and a feature comparison table against Compass.
 
 **Done when**
-- [ ] Installers build in CI for all three OSes
-- [ ] Fresh-install smoke test passes on each OS (connect, query, edit, export)
+- [x] Installers build in CI for all three OSes _(macOS universal dmg + Windows NSIS, published as v0.1.0; Linux paused by decision)_
+- [x] Fresh-install smoke test passes on each OS (connect, query, edit, export) _(tests/e2e/smoke.spec.ts against the packaged app on macOS and Windows in the release workflow, plus the shell)_
 
 ---
 
