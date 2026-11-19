@@ -71,18 +71,22 @@ export const StageCard = memo(function StageCard(p: StageCardProps) {
     [stage.operator, p.connectionId, p.ns]
   )
 
+  const half = (e: DragEvent): 'before' | 'after' => {
+    const box = e.currentTarget.getBoundingClientRect()
+    return e.clientY < box.top + box.height / 2 ? 'before' : 'after'
+  }
   const onDragOver = (e: DragEvent) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
     e.preventDefault()
     e.stopPropagation()
-    const box = e.currentTarget.getBoundingClientRect()
-    setDropAt(e.clientY < box.top + box.height / 2 ? 'before' : 'after')
+    setDropAt(half(e))
   }
   const onDrop = (e: DragEvent) => {
     const id = e.dataTransfer.getData(DRAG_TYPE)
-    const at = dropAt
+    // From the drop itself, not the dragover state: a quick drop can land before that re-renders.
+    const at = half(e)
     setDropAt(null)
-    if (!id || !at) return
+    if (!id) return
     e.preventDefault()
     e.stopPropagation()
     if (id !== stage.id) p.onDropStage(id, stage.id, at)
