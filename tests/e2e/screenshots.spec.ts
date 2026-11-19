@@ -94,7 +94,7 @@ test('README screenshots', async () => {
     await page.getByTestId('db-shop').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Open shell here' }).click()
     await expect
-      .poll(async () => (await page.getByTestId('shell-terminal').innerText()).replace(/ /g, ' '), {
+      .poll(async () => (await page.getByTestId('shell-terminal').innerText()).replace(/\u00a0/g, ' '), {
         timeout: 30_000
       })
       .toMatch(/shop> *$/m)

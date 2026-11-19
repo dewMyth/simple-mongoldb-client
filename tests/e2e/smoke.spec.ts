@@ -99,7 +99,7 @@ test('smoke: connect, query, edit, export, shell', async () => {
     await expect(page.getByTestId('shell-tab')).toBeVisible()
     const out = page.getByTestId('shell-last-output')
     await expect
-      .poll(async () => (await page.getByTestId('shell-terminal').innerText()).replace(/ /g, ' '), {
+      .poll(async () => (await page.getByTestId('shell-terminal').innerText()).replace(/\u00a0/g, ' '), {
         timeout: 30_000
       })
       .toMatch(/shop> *$/m)
