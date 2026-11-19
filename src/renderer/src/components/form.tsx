@@ -1,11 +1,12 @@
 /**
  * Small form helpers composed from shadcn/ui primitives, so feature code stays terse.
  */
-import { useId, type ReactNode } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Alert, AlertDescription } from './ui/alert'
 import { Badge } from './ui/badge'
+import { CopyDetailsButton } from './CopyDetailsButton'
 import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -102,11 +103,21 @@ export function SimpleSelect<T extends string>({
   )
 }
 
-export function ErrorBox({ children }: { children: ReactNode }) {
+/**
+ * An error message with "Copy details" (message, server code, app version, platform). Pass the
+ * original `error` when you have it so its name and code are included.
+ */
+export function ErrorBox({ children, error }: { children: ReactNode; error?: unknown }) {
+  const ref = useRef<HTMLDivElement>(null)
   return (
     <Alert variant="destructive" className="selectable py-2">
       <AlertCircle />
-      <AlertDescription className="text-xs break-words whitespace-pre-wrap">{children}</AlertDescription>
+      <AlertDescription className="flex items-start gap-2 text-xs">
+        <div ref={ref} className="min-w-0 flex-1 break-words whitespace-pre-wrap">
+          {children}
+        </div>
+        <CopyDetailsButton message={() => ref.current?.innerText ?? ''} error={error} />
+      </AlertDescription>
     </Alert>
   )
 }

@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { CopyDetailsButton } from './CopyDetailsButton'
 
 /**
  * Contains a rendering error to one part of the UI (e.g. one document card) instead of blanking
@@ -22,10 +23,16 @@ export class ErrorBoundary extends Component<
     if (!this.state.error) return this.props.children
     return (
       <div
-        className="selectable rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        className="selectable flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
         data-testid="render-error"
       >
-        Couldn't display {this.props.label ?? 'this'}: {this.state.error.message}
+        <span className="min-w-0 flex-1">
+          Couldn't display {this.props.label ?? 'this'}: {this.state.error.message}
+        </span>
+        <CopyDetailsButton
+          message={() => `Render error in ${this.props.label ?? 'the UI'}`}
+          error={this.state.error}
+        />
       </div>
     )
   }

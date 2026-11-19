@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Document } from 'bson'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
@@ -241,10 +241,12 @@ function ResultsHeader({
   }
   return (
     <div
-      className="flex h-9 shrink-0 items-center justify-between gap-3 border-b px-3 text-xs text-muted-foreground"
+      // A container: in a narrow pane (split view, small window) the buttons drop their labels, and
+      // as a last resort the row wraps, so nothing overlaps the pager.
+      className="@container/results flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-3 py-1 text-xs text-muted-foreground"
       data-testid="results-header"
     >
-      <span className="flex min-w-0 items-center gap-2">
+      <span className="flex shrink-0 items-center gap-2">
         <Pager tabId={tabId} r={r} />
         {r.status === 'running' && (
           <>
@@ -254,32 +256,39 @@ function ResultsHeader({
         )}
         {r.status === 'cancelled' && <span className="text-warn">Query cancelled</span>}
       </span>
-      <span className="flex shrink-0 items-center gap-3">
+      <span className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
         {viewMode === 'tree' && (
           <Button
             variant="ghost"
             size="sm"
             className="h-6 text-muted-foreground"
             onClick={() => onExpand(expand.mode === 'all' ? 'default' : 'all')}
+            aria-label={expand.mode === 'all' ? 'Collapse all' : 'Expand all'}
+            title={expand.mode === 'all' ? 'Collapse all' : 'Expand all'}
             data-testid="expand-all"
           >
             {expand.mode === 'all' ? <ChevronsDownUp /> : <ChevronsUpDown />}
-            {expand.mode === 'all' ? 'Collapse all' : 'Expand all'}
+            <Label>{expand.mode === 'all' ? 'Collapse all' : 'Expand all'}</Label>
           </Button>
         )}
         <span data-testid="result-count" title={r.countError ?? undefined}>
           {countText}
         </span>
-        {r.pageMs !== null && <span title="Time to load this page">{r.pageMs} ms</span>}
+        {r.pageMs !== null && (
+          <span className="hidden @3xl/results:inline" title="Time to load this page">
+            {r.pageMs} ms
+          </span>
+        )}
         <Button
           variant="ghost"
           size="sm"
           className="h-6"
           title="Open the aggregation builder (starts with this filter)"
           onClick={onAggregate}
+          aria-label="Aggregate"
           data-testid="open-aggregation"
         >
-          <Workflow /> Aggregate
+          <Workflow /> <Label>Aggregate</Label>
         </Button>
         <Button
           variant="ghost"
@@ -287,9 +296,10 @@ function ResultsHeader({
           className="h-6"
           title="Indexes of this collection"
           onClick={onIndexes}
+          aria-label="Indexes"
           data-testid="open-indexes"
         >
-          <KeyRound /> Indexes
+          <KeyRound /> <Label>Indexes</Label>
         </Button>
         <Button
           variant="ghost"
@@ -297,9 +307,10 @@ function ResultsHeader({
           className="h-6"
           title="Schema analysis of this collection"
           onClick={onSchema}
+          aria-label="Schema"
           data-testid="open-schema"
         >
-          <ChartColumn /> Schema
+          <ChartColumn /> <Label>Schema</Label>
         </Button>
         <Button
           variant="outline"
@@ -405,6 +416,11 @@ function ResultsHeader({
 }
 
 /** First / previous / page input / next / last, plus the "26–50" range. 25 documents per page. */
+/** A toolbar button label that hides in a narrow results pane (the icon and title remain). */
+function Label({ children }: { children: ReactNode }) {
+  return <span className="hidden @4xl/results:inline">{children}</span>
+}
+
 function Pager({ tabId, r }: { tabId: string; r: TabResults }) {
   const goToPage = useResultsStore((s) => s.goToPage)
   const [draft, setDraft] = useState<string | null>(null)

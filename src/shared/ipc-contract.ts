@@ -59,8 +59,8 @@ function channel<I extends z.ZodType, O>(input: I): { input: I; output: O } {
 
 // ---------------------------------------------------------------- shared schemas
 
-export const themeSchema = z.enum(['light', 'dark', 'system'])
-export type Theme = z.infer<typeof themeSchema>
+import { settingsSchema, themeSchema, type Settings } from './settings'
+export { themeSchema, type Settings, type Theme } from './settings'
 
 export interface AppInfo {
   name: string
@@ -69,10 +69,6 @@ export interface AppInfo {
   chrome: string
   node: string
   platform: string
-}
-
-export interface Settings {
-  theme: Theme
 }
 
 const connId = z.string().min(1)
@@ -213,6 +209,10 @@ export const ipcContract = {
 
   'settings:get': channel<z.ZodVoid, Settings>(z.void()),
   'settings:setTheme': channel<typeof themeSchema, Settings>(themeSchema),
+  /** Changes some settings; every window gets settings:changed. */
+  'settings:update': channel<ReturnType<typeof settingsSchema.partial>, Settings>(settingsSchema.partial()),
+  /** Opens the folder with the app's log files. */
+  'app:openLogs': channel<z.ZodVoid, void>(z.void()),
 
   'dialog:openFile': channel<typeof openFileSchema, string | null>(openFileSchema),
 

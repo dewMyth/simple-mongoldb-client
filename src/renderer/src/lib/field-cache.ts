@@ -1,12 +1,12 @@
 /**
- * Sampled fields per namespace for autocomplete: one $sample of 1,000 documents, cached until
+ * Sampled fields per namespace for autocomplete: one $sample (the sample-size setting), cached until
  * refreshed (Refresh field suggestions) or for 10 minutes. Failures (e.g. no find permission)
  * yield an empty list so the editor still offers operators.
  */
 import type { FieldStat } from '@shared/field-stats'
 import { ipc } from './ipc'
+import { currentSettings } from '../stores/settings'
 
-const SAMPLE_SIZE = 1000
 /** Distinct string values to keep per field (value suggestions). */
 const MAX_VALUES = 50
 const TTL = 10 * 60_000
@@ -23,7 +23,12 @@ export function getFields(connectionId: string, ns: string): Promise<FieldSample
   const k = key(connectionId, ns)
   const hit = cache.get(k)
   if (hit && Date.now() - hit.at < TTL) return hit.promise
-  const promise = ipc('schema:sampleFields', { connectionId, ns, size: SAMPLE_SIZE, maxValues: MAX_VALUES })
+  const promise = ipc('schema:sampleFields', {
+    connectionId,
+    ns,
+    size: Math.min(10_000, currentSettings().sampleSize),
+    maxValues: MAX_VALUES
+  })
     .then((r) => ({ fields: r.fields, sampled: r.sampled }))
     .catch(() => {
       cache.delete(k)

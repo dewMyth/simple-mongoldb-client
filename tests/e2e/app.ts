@@ -11,7 +11,7 @@ export function electronEnv(extra: Record<string, string> = {}): Record<string, 
   const env: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v
   delete env['ELECTRON_RUN_AS_NODE']
-  return { ...env, NODE_ENV: 'test', ...extra }
+  return { ...env, NODE_ENV: 'test', MONGO_STUDIO_E2E: '1', ...extra }
 }
 
 /**
@@ -78,6 +78,15 @@ async function launchOnce(userData: string): Promise<{ app: ElectronApplication;
     await page.waitForLoadState('domcontentloaded')
     // The app has rendered (and the page is still attached).
     await page.getByTestId('tab-bar').waitFor({ timeout: 30_000 })
+    // A fixed window size on every OS, whatever the screen (CI screens are small, and Monaco
+    // soft-wraps narrow editors, which changes the rendered text tests read).
+    // E2E_WINDOW=900x600 runs the suite at another size (e.g. to check narrow layouts).
+    const size = /^(\d+)x(\d+)$/.exec(process.env['E2E_WINDOW'] ?? '1400x900')
+    if (size)
+      await app.evaluate(
+        ({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]?.setSize(w!, h!),
+        [Number(size[1]), Number(size[2])]
+      )
   } catch (err) {
     const state = await Promise.race([
       app

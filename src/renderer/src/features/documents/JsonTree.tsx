@@ -94,7 +94,7 @@ export const JsonTree = memo(function JsonTree({
 
   return (
     <div
-      className="group/doc relative rounded-md border bg-card py-1.5 font-mono text-[12px] leading-5"
+      className="group/doc relative rounded-md border bg-card py-1.5 font-mono text-[length:var(--mono-size,12px)] leading-5"
       data-testid="json-tree"
     >
       <div className="absolute top-1 right-1 z-10 flex gap-0.5 opacity-0 transition-opacity group-hover/doc:opacity-100">

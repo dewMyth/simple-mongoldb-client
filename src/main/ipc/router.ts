@@ -7,6 +7,7 @@ import {
   type IpcEnvelope,
   type SerializedError
 } from '@shared/ipc-contract'
+import { log } from '../services/log'
 
 type Handler<C extends Channel> = (
   input: z.output<(typeof ipcContract)[C]['input']>,
@@ -37,7 +38,11 @@ export function wrapHandler<C extends Channel>(channel: C, handler: Handler<C>) 
       const input = schema.parse(raw) as z.output<(typeof ipcContract)[C]['input']>
       return { ok: true, data: await handler(input, event) }
     } catch (err) {
-      return { ok: false, error: serializeError(err) }
+      const error = serializeError(err)
+      // Name and code only: messages can quote document values or user input.
+      if (error.name !== 'CancelledError')
+        log.warn(`ipc ${channel} failed`, { error: error.name, code: error.code, codeName: error.codeName })
+      return { ok: false, error }
     }
   }
 }

@@ -8,6 +8,7 @@ import { parseConnectionString } from '@shared/connection-fields'
 import type { ResolvedConnection } from './storage-service'
 import { openSshTunnel, type SshTunnel } from './ssh-tunnel'
 import { ReadableError } from './errors'
+import { log, uriHosts } from './log'
 
 interface OpenConnection {
   id: string
@@ -151,6 +152,12 @@ export class ConnectionManager {
           const info: ActiveConnection = { id: resolved.id, server, connectedAt: Date.now() }
           this.open.set(resolved.id, { id: resolved.id, client, tunnel, resolved, info, target })
           this.emit()
+          log.info('connected', {
+            id: resolved.id,
+            hosts: uriHosts(resolved.uri),
+            ssh: !!resolved.ssh,
+            server: server.version
+          })
           return info
         } catch (err) {
           await client.close().catch(() => {})
@@ -158,6 +165,13 @@ export class ConnectionManager {
           throw err
         }
       } catch (err) {
+        const e = err as { name?: string; code?: unknown }
+        log.warn('connect failed', {
+          id: resolved.id,
+          hosts: uriHosts(resolved.uri),
+          error: e.name,
+          code: String(e.code ?? '')
+        })
         throw new ReadableError(err)
       } finally {
         this.pending.delete(resolved.id)
@@ -172,6 +186,7 @@ export class ConnectionManager {
     if (!c) return
     this.open.delete(id)
     this.emit()
+    log.info('disconnected', { id })
     await c.client.close().catch(() => {})
     await c.tunnel?.close().catch(() => {})
   }

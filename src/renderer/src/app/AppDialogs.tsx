@@ -1,12 +1,14 @@
 import { useDialogStore } from '../stores/dialogs'
 import { ExportDialog } from '../features/import-export/ExportDialog'
 import { ImportDialog } from '../features/import-export/ImportDialog'
+import { SettingsDialog } from './SettingsDialog'
 
 /** Dialogs opened from anywhere through the dialog store. */
 export function AppDialogs() {
   const dialog = useDialogStore((s) => s.dialog)
   const close = useDialogStore((s) => s.close)
   if (!dialog) return null
+  if (dialog.kind === 'settings') return <SettingsDialog onClose={close} />
   if (dialog.kind === 'export')
     return (
       <ExportDialog connectionId={dialog.connectionId} ns={dialog.ns} query={dialog.query} onClose={close} />

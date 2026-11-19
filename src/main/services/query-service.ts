@@ -57,7 +57,9 @@ async function readBatch(cursor: FindCursor, max: number): Promise<FindPage> {
 export class QueryService {
   constructor(
     private readonly connections: ConnectionManager,
-    private readonly registry: CursorRegistry
+    private readonly registry: CursorRegistry,
+    /** maxTimeMS for finds that don't set one (a setting; 0 = none). */
+    private readonly defaultMaxTimeMS: () => number = () => 0
   ) {}
 
   async find(input: {
@@ -72,6 +74,8 @@ export class QueryService {
     const parsed = parseQuery(input.query)
     if (!parsed.ok) return { ok: false, errors: parsed.errors }
     const parseMs = performance.now() - t0
+    if (parsed.query.maxTimeMS === undefined && this.defaultMaxTimeMS() > 0)
+      parsed.query.maxTimeMS = this.defaultMaxTimeMS()
 
     let batchSize = input.batchSize ?? DEFAULT_BATCH_SIZE
     if (input.page) {

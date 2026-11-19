@@ -181,7 +181,7 @@ function Reconnect({ tab, name }: { tab: Tab; name: string }) {
         >
           {connect.isPending ? 'Connecting…' : `Connect to ${name}`}
         </Button>
-        {connect.error && <ErrorBox>{connect.error.message}</ErrorBox>}
+        {connect.error && <ErrorBox error={connect.error}>{connect.error.message}</ErrorBox>}
       </div>
     </div>
   )

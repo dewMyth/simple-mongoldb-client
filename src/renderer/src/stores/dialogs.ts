@@ -5,6 +5,7 @@ import type { QueryText } from '@shared/query'
 export type AppDialog =
   | { kind: 'export'; connectionId: string; ns: string; query: QueryText | null }
   | { kind: 'import'; connectionId: string; ns: string }
+  | { kind: 'settings' }
 
 export const useDialogStore = create<{
   dialog: AppDialog | null

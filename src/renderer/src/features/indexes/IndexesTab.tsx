@@ -120,7 +120,7 @@ export function IndexesTab({ tab }: { tab: Tab }) {
       <div className="min-h-0 flex-1 overflow-auto">
         {list.error ? (
           <div className="p-3">
-            <ErrorBox>{(list.error as Error).message}</ErrorBox>
+            <ErrorBox error={list.error}>{(list.error as Error).message}</ErrorBox>
           </div>
         ) : !list.data ? (
           <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">

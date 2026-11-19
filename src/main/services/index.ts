@@ -12,6 +12,7 @@ import { isReadOnly } from '@shared/permissions'
 import { PipelineLibrary } from './pipeline-library'
 import type { SavedPipeline } from '@shared/pipeline'
 import Store from 'electron-store'
+import { settingsStore } from './settings-store'
 import { ConnectionManager } from './connection-manager'
 import { DatabaseService } from './database-service'
 import { CursorRegistry } from './cursor-registry'
@@ -44,7 +45,7 @@ export const connections = new ConnectionManager()
 export const databases = new DatabaseService(connections)
 export const permissions = new PermissionService()
 export const cursors = new CursorRegistry()
-export const queries = new QueryService(connections, cursors)
+export const queries = new QueryService(connections, cursors, () => settingsStore.get().defaultMaxTimeMS)
 export const schemas = new SchemaService(connections, cursors)
 export const documents = new DocumentService(connections)
 

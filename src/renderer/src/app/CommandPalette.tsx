@@ -15,6 +15,7 @@ import {
   KeyRound,
   RotateCcw,
   Rows2,
+  Settings,
   SquareTerminal,
   Table2,
   Upload,
@@ -187,6 +188,12 @@ export function CommandPalette() {
         )}
 
         <CommandGroup heading="Commands">
+          <CommandItem
+            value="command settings preferences"
+            onSelect={act(() => useDialogStore.getState().open({ kind: 'settings' }))}
+          >
+            <Settings /> Settings <CommandShortcut>{mod},</CommandShortcut>
+          </CommandItem>
           {active.map((c) => (
             <CommandItem
               key={`shell-${c.id}`}

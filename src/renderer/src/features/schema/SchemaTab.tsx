@@ -11,6 +11,7 @@ import { emptyQueryText } from '@shared/query'
 import type { SchemaChart, SchemaFieldInfo, SchemaTypeInfo } from '@shared/schema'
 import { cn } from '@renderer/lib/utils'
 import { useTabsStore, type Tab } from '../../stores/tabs'
+import { currentSettings } from '../../stores/settings'
 import { ipc } from '../../lib/ipc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -27,10 +28,10 @@ export function SchemaTab({ tab }: { tab: Tab }) {
   const patch = useTabsStore((s) => s.patch)
   const ns = tab.ns!
   const filter = tab.query.filter
-  const [sampleSize, setSampleSize] = useState(1000)
+  const [sampleSize, setSampleSize] = useState(() => currentSettings().sampleSize)
   // What was analysed (the filter as it was when Analyze was pressed).
   const [request, setRequest] = useState<{ filter: string; sampleSize: number; n: number } | null>(
-    tab.autoRun ? { filter, sampleSize: 1000, n: 0 } : null
+    tab.autoRun ? { filter, sampleSize: currentSettings().sampleSize, n: 0 } : null
   )
   const q = useQuery({
     queryKey: ['schema', tab.id, request],
@@ -117,7 +118,7 @@ export function SchemaTab({ tab }: { tab: Tab }) {
             Press Analyze to sample the collection.
           </div>
         )}
-        {q.error && <ErrorBox>{(q.error as Error).message}</ErrorBox>}
+        {q.error && <ErrorBox error={q.error}>{(q.error as Error).message}</ErrorBox>}
         {q.isFetching && !q.data && (
           <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
             <Spinner className="size-3" /> Sampling {request?.sampleSize.toLocaleString()} documents…

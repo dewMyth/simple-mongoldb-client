@@ -104,7 +104,7 @@ export function TableView({
   return (
     <div className="min-h-0 flex-1 overflow-auto" data-testid="table-view">
       <table
-        className="border-separate border-spacing-0 font-mono text-[12px]"
+        className="border-separate border-spacing-0 font-mono text-[length:var(--mono-size,12px)]"
         style={{ tableLayout: 'fixed' }}
       >
         <colgroup>
@@ -124,7 +124,7 @@ export function TableView({
                 className="relative border-r border-b bg-panel px-2 py-1 text-left font-sans font-medium"
                 data-testid={`col-${c.path}`}
               >
-                <div className="truncate text-[12px] text-foreground" title={c.path}>
+                <div className="truncate text-[length:var(--mono-size,12px)] text-foreground" title={c.path}>
                   {c.path}
                 </div>
                 <div

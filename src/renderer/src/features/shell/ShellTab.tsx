@@ -12,6 +12,7 @@ import { ansi } from '@shared/shell-output'
 import type { Tab } from '../../stores/tabs'
 import { ipc } from '../../lib/ipc'
 import { useThemeStore } from '../../stores/theme'
+import { currentSettings, useSettingsStore } from '../../stores/settings'
 import { useSavedConnections } from '../connections/queries'
 import { Button } from '../../components/ui/button'
 import { LineEditor } from './line-editor'
@@ -90,7 +91,7 @@ export function ShellTab({ tab }: { tab: Tab }) {
     if (!host) return
     const term = new Terminal({
       fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-      fontSize: 12,
+      fontSize: currentSettings().fontSize,
       lineHeight: 1.25,
       cursorBlink: true,
       scrollback: 10_000,
@@ -223,6 +224,10 @@ export function ShellTab({ tab }: { tab: Tab }) {
   useEffect(() => {
     if (termRef.current) termRef.current.options.theme = themes[theme === 'dark' ? 'dark' : 'light']
   }, [theme])
+  const fontSize = useSettingsStore((s) => s.settings.fontSize)
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.fontSize = fontSize
+  }, [fontSize])
 
   const restart = async () => {
     const sessionId = sessionRef.current

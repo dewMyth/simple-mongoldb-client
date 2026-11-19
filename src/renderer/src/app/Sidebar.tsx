@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Settings } from 'lucide-react'
+import { useDialogStore } from '../stores/dialogs'
 import { IconButton } from '../components/IconButton'
 import { ConnectionDialog } from '../features/connections/ConnectionDialog'
 import { ConnectionTree } from '../features/connections/ConnectionTree'
@@ -20,6 +21,13 @@ export function Sidebar() {
             <Plus size={15} />
           </IconButton>
           <ThemeToggle />
+          <IconButton
+            label="Settings"
+            onClick={() => useDialogStore.getState().open({ kind: 'settings' })}
+            data-testid="open-settings"
+          >
+            <Settings size={14} />
+          </IconButton>
         </div>
       </div>
       <div className="relative shrink-0 border-b border-border p-2">

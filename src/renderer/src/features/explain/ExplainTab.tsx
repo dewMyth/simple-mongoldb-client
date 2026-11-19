@@ -128,7 +128,7 @@ export function ExplainTab({ tab }: { tab: Tab }) {
             <Spinner className="size-3" /> Running explain (executionStats runs the query)…
           </div>
         )}
-        {status === 'error' && <ErrorBox>{(q.error as Error).message}</ErrorBox>}
+        {status === 'error' && <ErrorBox error={q.error}>{(q.error as Error).message}</ErrorBox>}
         {status === 'done' && (
           <Result
             result={q.data!}

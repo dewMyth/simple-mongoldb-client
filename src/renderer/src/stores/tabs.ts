@@ -7,6 +7,7 @@ import { emptyQueryText, type QueryText } from '@shared/query'
 import type { PersistedTab, SplitOrientation, TabType, ViewMode, Workspace } from '@shared/workspace'
 import type { PipelineState } from '@shared/pipeline'
 import { ipc } from '../lib/ipc'
+import { currentSettings } from './settings'
 
 export type { TabType, ViewMode, SplitOrientation }
 
@@ -149,7 +150,7 @@ export const useTabsStore = create<TabsState>((set, get) => {
         ...tab,
         id,
         query: tab.query ?? emptyQueryText,
-        viewMode: tab.viewMode ?? 'tree',
+        viewMode: tab.viewMode ?? currentSettings().defaultViewMode,
         pinned: false,
         scrollAnchor: 0,
         autoRun: tab.autoRun ?? true

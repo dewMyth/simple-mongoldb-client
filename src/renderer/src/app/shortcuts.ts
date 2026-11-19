@@ -6,10 +6,12 @@
  *   Cmd/Ctrl+Shift+T      reopen closed tab
  *   Ctrl+Tab / +Shift     next / previous tab
  *   Cmd/Ctrl+1…9          go to tab 1…8, 9 = last tab
+ *   Cmd/Ctrl+,            settings
  */
 import { useEffect } from 'react'
 import { useTabsStore } from '../stores/tabs'
 import { usePaletteStore } from '../stores/palette'
+import { useDialogStore } from '../stores/dialogs'
 
 export function useWorkspaceShortcuts(): void {
   useEffect(() => {
@@ -20,6 +22,8 @@ export function useWorkspaceShortcuts(): void {
       if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
         const p = usePaletteStore.getState()
         p.setOpen(!p.open)
+      } else if (mod && !e.shiftKey && e.key === ',') {
+        useDialogStore.getState().open({ kind: 'settings' })
       } else if (mod && e.shiftKey && e.key.toLowerCase() === 't') {
         tabs.reopenClosed()
       } else if (e.ctrlKey && e.key === 'Tab') {

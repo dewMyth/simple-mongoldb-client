@@ -1,5 +1,5 @@
 import { Monitor, Moon, Sun } from 'lucide-react'
-import type { Theme } from '@shared/ipc-contract'
+import type { Theme } from '@shared/settings'
 import { useThemeStore } from '../stores/theme'
 import { IconButton } from '../components/IconButton'
 

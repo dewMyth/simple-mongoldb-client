@@ -81,11 +81,11 @@ export const JsonView = memo(function JsonView({ doc, actions }: { doc: Document
       {html ? (
         // Monaco's colorizer escapes the text and only emits <span class="mtkN"> wrappers.
         <div
-          className="selectable overflow-x-auto px-3 py-2 font-mono text-[12px] leading-[18px] whitespace-pre"
+          className="selectable overflow-x-auto px-3 py-2 font-mono text-[length:var(--mono-size,12px)] leading-[1.5] whitespace-pre"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (
-        <pre className="selectable overflow-x-auto px-3 py-2 font-mono text-[12px] leading-[18px] whitespace-pre">
+        <pre className="selectable overflow-x-auto px-3 py-2 font-mono text-[length:var(--mono-size,12px)] leading-[1.5] whitespace-pre">
           {text}
         </pre>
       )}

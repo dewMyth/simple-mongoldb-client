@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import type { Theme } from '@shared/ipc-contract'
+import type { Theme } from '@shared/settings'
 import { ipc } from '../lib/ipc'
+import { useSettingsStore } from './settings'
 
 interface ThemeState {
   theme: Theme
@@ -21,10 +22,17 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   theme: 'system',
   resolved: resolve('system'),
   async init() {
-    const { theme } = await ipc('settings:get')
+    const { theme } = await useSettingsStore.getState().init()
     const resolved = resolve(theme)
     apply(resolved)
     set({ theme, resolved })
+    // Follow changes made elsewhere (the settings dialog, other windows).
+    useSettingsStore.subscribe((s) => {
+      if (s.settings.theme === get().theme) return
+      const r = resolve(s.settings.theme)
+      apply(r)
+      set({ theme: s.settings.theme, resolved: r })
+    })
     media.addEventListener('change', () => {
       const r = resolve(get().theme)
       apply(r)

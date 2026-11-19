@@ -6,6 +6,7 @@ import { monaco, SHELL_LANGUAGE } from '../../lib/monaco'
 import { attachCompletion, completionEditorOptions } from '../../lib/autocomplete'
 import { ipc } from '../../lib/ipc'
 import { useThemeStore } from '../../stores/theme'
+import { useSettingsStore } from '../../stores/settings'
 
 type IEditor = Parameters<OnMount>[0]
 
@@ -15,7 +16,8 @@ export interface QueryEditorHandlers {
   onHistory?: (direction: 'up' | 'down') => string | null
 }
 
-const LINE_HEIGHT = 19
+/** Editor line height for a font size (19 px at the default 12 px). */
+const lineHeightFor = (fontSize: number) => Math.round(fontSize * 1.6)
 const MAX_LINES = 8
 const MARKER_OWNER = 'query-parser'
 
@@ -59,7 +61,13 @@ export function QueryEditor({
   const resolved = useThemeStore((s) => s.resolved)
   const editorRef = useRef<IEditor | null>(null)
   const handlersRef = useRef(handlers)
-  const [height, setHeight] = useState(LINE_HEIGHT + 10)
+  const fontSize = useSettingsStore((s) => s.settings.fontSize)
+  const lineHeight = lineHeightFor(fontSize)
+  const lineHeightRef = useRef(lineHeight)
+  useEffect(() => {
+    lineHeightRef.current = lineHeight
+  }, [lineHeight])
+  const [height, setHeight] = useState(lineHeight + 10)
   const [focused, setFocused] = useState(false)
   const [liveError, setLiveError] = useState<QueryFieldError | null>(null)
 
@@ -122,9 +130,9 @@ export function QueryEditor({
     // Size to the rendered (wrapped) lines, not model lines: a narrow pane wraps long queries and
     // a model-line height would clip the wrapped part.
     const updateHeight = () => {
-      const visual = Math.round(editor.getContentHeight() / LINE_HEIGHT)
+      const visual = Math.round(editor.getContentHeight() / lineHeightRef.current)
       const lines = Math.min(MAX_LINES, Math.max(1, visual))
-      setHeight(lines * LINE_HEIGHT + 10)
+      setHeight(lines * lineHeightRef.current + 10)
     }
     editor.onDidContentSizeChange(updateHeight)
     editor.onDidFocusEditorText(() => setFocused(true))
@@ -222,8 +230,8 @@ export function QueryEditor({
           },
           wordWrap: 'on',
           fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-          fontSize: 12,
-          lineHeight: LINE_HEIGHT,
+          fontSize,
+          lineHeight,
           automaticLayout: true,
           fixedOverflowWidgets: true,
           contextmenu: false,

@@ -37,7 +37,7 @@ function uniqueKey(obj: Record<string, unknown>, base = 'field'): string {
 
 export function EditableTree({ editor }: { editor: DocEditor }) {
   return (
-    <div className="font-mono text-[12px] leading-5" data-testid="editable-tree">
+    <div className="font-mono text-[length:var(--mono-size,12px)] leading-5" data-testid="editable-tree">
       {entriesOf(editor.draft).map(([k, v]) => (
         <EditableNode key={String(k)} name={k} value={v} path={[k]} depth={0} editor={editor} />
       ))}

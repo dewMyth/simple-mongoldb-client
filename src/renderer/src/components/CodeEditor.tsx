@@ -7,6 +7,7 @@ import Editor, { type OnMount } from '@monaco-editor/react'
 import { monaco, SHELL_LANGUAGE } from '../lib/monaco'
 import { attachCompletion, completionEditorOptions, type CompletionTarget } from '../lib/autocomplete'
 import { useThemeStore } from '../stores/theme'
+import { useSettingsStore } from '../stores/settings'
 
 type IEditor = Parameters<OnMount>[0]
 
@@ -40,6 +41,8 @@ export function CodeEditor({
   completion?: CompletionTarget
 }) {
   const resolved = useThemeStore((s) => s.resolved)
+  const fontSize = useSettingsStore((s) => s.settings.fontSize)
+  const lineHeight = Math.round(fontSize * 1.6)
   const editorRef = useRef<IEditor | null>(null)
   const submitRef = useRef(onSubmit)
   useEffect(() => {
@@ -54,7 +57,7 @@ export function CodeEditor({
   useEffect(() => () => detachRef.current(), [])
 
   const lines = Math.max(minLines, value.split('\n').length + 1)
-  const height = Math.min(maxHeight, lines * 19 + 12)
+  const height = Math.min(maxHeight, lines * lineHeight + 12)
 
   useEffect(() => {
     const model = editorRef.current?.getModel()
@@ -113,8 +116,8 @@ export function CodeEditor({
           folding: true,
           scrollBeyondLastLine: false,
           fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-          fontSize: 12,
-          lineHeight: 19,
+          fontSize,
+          lineHeight,
           tabSize: 2,
           automaticLayout: true,
           fixedOverflowWidgets: true,

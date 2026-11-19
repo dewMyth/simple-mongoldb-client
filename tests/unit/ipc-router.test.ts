@@ -1,3 +1,4 @@
+import { defaultSettings } from '../../src/shared/settings'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), removeHandler: vi.fn() } }))
@@ -16,8 +17,11 @@ describe('ipc router', () => {
   })
 
   it('passes parsed input and returns data', async () => {
-    const res = await wrapHandler('settings:setTheme', (theme) => ({ theme }))(fakeEvent, 'dark')
-    expect(res).toEqual({ ok: true, data: { theme: 'dark' } })
+    const res = await wrapHandler('settings:setTheme', (theme) => ({ ...defaultSettings, theme }))(
+      fakeEvent,
+      'dark'
+    )
+    expect(res).toEqual({ ok: true, data: { ...defaultSettings, theme: 'dark' } })
   })
 
   it('keeps MongoServerError codes', () => {
@@ -32,5 +36,30 @@ describe('ipc router', () => {
       code: 13,
       codeName: 'Unauthorized'
     })
+  })
+})
+
+describe('settings', () => {
+  it('fill defaults and drop invalid stored values', async () => {
+    const { normalizeSettings } = await import('../../src/shared/settings')
+    expect(normalizeSettings({ theme: 'dark', fontSize: 99, sampleSize: 500, extra: 1 })).toEqual({
+      ...defaultSettings,
+      theme: 'dark',
+      sampleSize: 500
+    })
+    expect(normalizeSettings(null)).toEqual(defaultSettings)
+  })
+
+  it('validates partial updates at the IPC boundary', async () => {
+    const ok = await wrapHandler('settings:update', (patch) => ({ ...defaultSettings, ...patch }))(
+      fakeEvent,
+      { fontSize: 14 }
+    )
+    expect(ok).toMatchObject({ ok: true, data: { fontSize: 14 } })
+    const bad = await wrapHandler('settings:update', (patch) => ({ ...defaultSettings, ...patch }))(
+      fakeEvent,
+      { fontSize: 99 }
+    )
+    expect(bad).toMatchObject({ ok: false, error: { validation: true } })
   })
 })
